@@ -1,5 +1,8 @@
 {
   "name": "todo_application",
   "private": true,
-  "dependencies": {}
+  "dependencies": {},
+  "devDependencies": {
+    "axios": "^0.17.1"
+  }
 }
