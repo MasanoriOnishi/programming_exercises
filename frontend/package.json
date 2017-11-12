@@ -1,21 +1,26 @@
 {
-  "name": "todo_application",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "",
-  "license": "ISC",
+  "name": "frontend",
+  "version": "0.1.0",
+  "private": true,
   "devDependencies": {
-    "@cycle/core": "^7.0.0",
-    "@cycle/dom": "^20.1.0",
     "babel-core": "^6.26.0",
-    "babel-loader": "^7.1.2",
     "babel-plugin-transform-react-jsx": "^6.24.1",
     "babel-preset-es2015": "^6.24.1",
-    "rx": "^4.1.0",
-    "webpack": "^2.7.0"
+    "cycle-scripts": "2.1.0"
+  },
+  "dependencies": {
+    "@cycle/dom": "18.3.0",
+    "@cycle/rxjs-run": "7.1.0",
+    "rxjs": "5.4.3"
+  },
+  "scripts": {
+    "start": "cycle-scripts start",
+    "test": "cycle-scripts test",
+    "build": "cycle-scripts build",
+    "eject": "cycle-scripts eject"
+  },
+  "cca": {
+    "language": "javascript",
+    "streamLib": "rxjs"
   }
 }
