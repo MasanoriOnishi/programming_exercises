@@ -11,7 +11,7 @@ module.exports = {
   // },
     entry: {
         // javascript: "./src/js/index.js",
-        app: "./src/index.js"
+        app: "./src/js/index.js"
     },
     output: {
         path: require('path').resolve("../public/js"),
