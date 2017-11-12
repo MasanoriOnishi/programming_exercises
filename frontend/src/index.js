@@ -1,5 +1,5 @@
 import {run} from '@cycle/rxjs-run'
-import {makeDOMDriver, hJSX} from '@cycle/dom'
+import {makeDOMDriver} from '@cycle/dom'
 import Rx from 'rxjs/Rx'
 
 export function main (sources) {
