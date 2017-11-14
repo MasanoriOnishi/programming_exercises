@@ -1,8 +1,6 @@
 module.exports = {
-  // context: __dirname + "/src",
   entry: {
     javascript: "./src/index.js",
-    // html: "./index.html"
   },
   output: {
     path: require('path').resolve("../public/js"),
@@ -16,7 +14,6 @@ module.exports = {
         exclude: /node_modules/,
         loader: 'babel-loader'
       }
-      // {test: /\.html$/, loader: "file?name=[name].[ext]"}
     ]
   }
 }
