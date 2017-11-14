@@ -5,7 +5,7 @@ import {div, h1, makeDOMDriver} from '@cycle/dom';
 
 function main(sources) {
   let request$ = xs.of({
-    url: 'http://jsonplaceholder.typicode.com/posts', // GET method by default
+    url: 'http://127.0.0.1:3000/todos', // GET method by default
     category: 'hello',
   });
 
