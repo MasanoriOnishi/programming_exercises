@@ -17,6 +17,7 @@
 !/tmp/.keep
 
 /node_modules
+/frontend/node_modules
 /yarn-error.log
 
 .byebug_history
