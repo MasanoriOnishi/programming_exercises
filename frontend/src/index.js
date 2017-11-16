@@ -1,26 +1,24 @@
 import xs from 'xstream'
 import {run} from '@cycle/run';
 import {makeHTTPDriver} from '@cycle/http';
-import {div, h1, makeDOMDriver} from '@cycle/dom';
+import {div, h1, makeDOMDriver, button, h4, a, tr, table, tbody, thead, td, li, ul, span, th} from '@cycle/dom';
 
 function main(sources) {
   let request$ = xs.of({
     url: 'http://127.0.0.1:3000/todos', // GET method by default
-    category: 'hello',
+    category: 'todos',
   });
 
-  let response$ = sources.HTTP
-    .select('hello')
-    .flatten();
+  let renderTodo = todo => tr([td(todo.due), td(todo.task), td(todo.status)])
 
-  let vdom$ = response$
-    .map(res => res.text) // We expect this to be "Hello World"
-    .startWith('Loading...')
-    .map(text =>
-      div('.container', [
-        h1(text)
-      ])
-    );
+  const todos$ = sources.HTTP.select('todos')
+    .flatten()
+    .map(res => res.body)
+    .startWith([]);
+
+  const vdom$ = todos$.map(todo =>
+    table(".table", tbody(todo.map(renderTodo))
+  ));
 
   return {
     DOM: vdom$,
