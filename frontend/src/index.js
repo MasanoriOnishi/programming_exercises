@@ -16,7 +16,7 @@ function TodoList(sources) {
     url: 'http://127.0.0.1:3000/todos', // GET method by default
     category: 'todos',
   });
-  let renderTodo = todo => tr([td(todo.due), td(todo.task), td(todo.status)])
+  let renderTodo = todo => tr([td(todo.due), td(todo.task), td(todo.status), td(a({ props: { href: '/about' } }, 'Show'))])
   const todos$ = sources.HTTP.select('todos')
     .flatten()
     .map(res => res.body)
