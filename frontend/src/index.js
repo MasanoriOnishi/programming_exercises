@@ -11,22 +11,12 @@ function Home(sources) {
   };
 }
 
-function About(sources) {
-  const vtree$ = xs.of(h('h1', {}, 'About I am Home'));
-  return {
-    DOM: vtree$
-  };
-}
-
 function TodoList(sources) {
   let request$ = xs.of({
     url: 'http://127.0.0.1:3000/todos', // GET method by default
     category: 'todos',
   });
-
   let renderTodo = todo => tr([td(todo.due), td(todo.task), td(todo.status)])
-
-
   const todos$ = sources.HTTP.select('todos')
     .flatten()
     .map(res => res.body)
@@ -42,8 +32,42 @@ function TodoList(sources) {
   };
 }
 
+function About(sources) {
+  const getRandomUser$ = sources.DOM.select('.get-random').events('click')
+    .map(() => {
+      const randomNum = Math.round(Math.random() * 9) + 1;
+      return {
+        url: 'https://jsonplaceholder.typicode.com/users/' + String(randomNum),
+        category: 'user',
+        method: 'GET'
+      };
+    });
+
+  const user$ = sources.HTTP.select('user')
+    .flatten()
+    .map(res => res.body)
+    .startWith(null);
+
+  const vdom$ = user$.map(user =>
+    div('.users', [
+      button('.get-random', 'Get random user'),
+      user === null ? null : div('.user-details', [
+        h1('.user-name', user.name),
+        h4('.user-email', user.email),
+        a('.user-website', {attrs: {href: user.website}}, user.website)
+      ])
+    ])
+  );
+
+  return {
+    DOM: vdom$,
+    HTTP: getRandomUser$
+  };
+}
+
+
 const routes = {
-  '/': Home,
+  '/': About,
   '/about': About,
   '/other': TodoList
 };
@@ -51,25 +75,21 @@ const routes = {
 function main(sources) {
   const clickHref$ = sources.DOM.select('a').events('click');
   const history$ = clickHref$.map(ev => ev.target.pathname);
-  let request$ = xs.of({
-    url: 'http://127.0.0.1:3000/todos', // GET method by default
-    category: 'todos',
-  });
-
-  const vtree$ = sources.history
+  const history_data$ = sources.history
     .map(location => location.pathname)
     .map(pathname => routes[pathname])
     .map(Component => Component(sources))
-    .map(sinks => sinks.DOM)
-    .flatten()
-    .map(childVnode => h('div#app', {}, [navbar(), childVnode]));
+
+  const vtree$ = history_data$.map(x => x.DOM).flatten().map(childVnode => h('div#app', {}, [navbar(), childVnode]));
+  const requests$ = history_data$.map(x => x.HTTP).filter(x => !!x).flatten();
+  console.log(requests$)
 
   const sinks = {
     DOM: vtree$,
     history: history$,
     preventDefault: clickHref$,
     debug: sources.history,
-    HTTP: request$
+    HTTP: requests$
   };
   return sinks;
 }
@@ -90,7 +110,6 @@ function navbar() {
   ]);
 }
 
-
 const drivers = {
   DOM: makeDOMDriver('#root'),
   history: makeHistoryDriver(),
@@ -98,11 +117,5 @@ const drivers = {
   debug: x$ => x$.subscribe({ next: console.error }),
   HTTP: makeHTTPDriver()
 };
-
-
-// const drivers = {
-//   DOM: makeDOMDriver('#root'),
-//   HTTP: makeHTTPDriver()
-// }
 
 run(main, drivers)
