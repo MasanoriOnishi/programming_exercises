@@ -23,8 +23,15 @@ function TodoList(sources) {
     .startWith([]);
 
   const vdom$ = todos$.map(todo =>
-    table(".table", tbody(todo.map(renderTodo))
-  ));
+    h('table', {}, [
+      h('thead', {}, h('tr', {}, [
+        h('td', "due"),
+        h('td', "task"),
+        h('td', "status")
+      ])),
+      h('tbody',{}, todo.map(renderTodo))
+      ])
+    );
 
   return {
     DOM: vdom$,
@@ -67,7 +74,7 @@ function About(sources) {
 
 
 const routes = {
-  '/': About,
+  '/': TodoList,
   '/about': About,
   '/other': TodoList
 };
@@ -82,7 +89,6 @@ function main(sources) {
 
   const vtree$ = history_data$.map(x => x.DOM).flatten().map(childVnode => h('div#app', {}, [navbar(), childVnode]));
   const requests$ = history_data$.map(x => x.HTTP).filter(x => !!x).flatten();
-  console.log(requests$)
 
   const sinks = {
     DOM: vtree$,
