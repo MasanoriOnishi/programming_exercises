@@ -13,6 +13,14 @@ function Home(sources) {
   };
 }
 
+function TodoForm(sources) {
+  const vtree$ = xs.of(h('h1', {}, 'Hello I am Home'));
+  return {
+    DOM: vtree$
+  };
+}
+
+
 function TodoList(sources) {
   let request$ = xs.of({
     url: 'http://127.0.0.1:3000/todos', // GET method by default
@@ -72,7 +80,8 @@ function Todo({props$, sources}) {
 const routes = {
   '/': TodoList,
   '/other': TodoList,
-  '/todos/:id': id => sources => Todo({props$: {id}, sources})
+  '/todos/:id': id => sources => Todo({props$: {id}, sources}),
+  '/new': TodoForm,
 };
 
 function main(sources) {
@@ -105,7 +114,7 @@ function navbar() {
         h('a.pure-menu-link', { props: { href: '/' } }, 'Home')
       ]),
       h('li.pure-menu-item', {}, [
-        h('a.pure-menu-link', { props: { href: '/about' } }, 'About')
+        h('a.pure-menu-link', { props: { href: '/new' } }, 'New')
       ]),
       h('li.pure-menu-item', {}, [
         h('a.pure-menu-link', { props: { href: '/other' } }, 'TodoList')
