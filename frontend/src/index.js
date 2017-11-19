@@ -47,9 +47,9 @@ function TodoForm({DOM, HTTP}) {
   // レスポンス Observable を取得する
   const response$ = HTTP.select('api').flatten().startWith({response: {}});
   const vtree$ = xs.of(h('div', [
-    h('div.form-group', [h('input#post-due.form-control')]),
-    h('div.form-group', [h('input#post-task.form-control')]),
-    h('div.form-group', [h('input#post-status.form-control')]),
+    h('div.form-group', [h('div', '期限日'), h('input#post-due.form-control')]),
+    h('div.form-group', [h('div', 'タスク内容'),h('input#post-task.form-control')]),
+    h('div.form-group', [h('div', '状態'),h('input#post-status.form-control')]),
     h('button#post.btn.btn-outline-primary.btn-block', ['POST'])
   ]));
 
