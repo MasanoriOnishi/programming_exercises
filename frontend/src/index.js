@@ -15,7 +15,6 @@ function Home(sources) {
 }
 
 function TodoForm({DOM, HTTP}) {
-
   const defaultPageState = {
     response: {}
   };
@@ -73,9 +72,9 @@ function TodoList(sources) {
   const vdom$ = todos$.map(todo =>
     h('table', {}, [
       h('thead', {}, h('tr', {}, [
-        h('td', "due"),
-        h('td', "task"),
-        h('td', "status")
+        h('td', "Due"),
+        h('td', "Task"),
+        h('td', "Status")
       ])),
       h('tbody',{}, todo.map(renderTodo))
       ])
@@ -100,11 +99,11 @@ function Todo({props$, sources}) {
 
   const vdom$ = todo$.map(todo =>
     div('.todos', [
-      todo === null ? null : div('.todo-details', [
-        h1('.todo-name', todo.due),
-        h4('.todo-email', todo.task),
-        h4('.todo-email', todo.status),
-        a('.user-website', {attrs: {href: '/'}}, 'Back')
+      todo === null ? null : h('div.todo-details', [
+        h('div', 'Due: '  + todo.due),
+        h('div', 'Task: ' + todo.task),
+        h('div', 'Status: ' + todo.status),
+        h('a', {attrs: {href: '/'}}, 'Back')
       ])
     ])
   );
