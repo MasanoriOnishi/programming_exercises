@@ -5,11 +5,57 @@ import {div, h1, makeDOMDriver, button, h4, a, tr, table, tbody, thead, td, li, 
 import { makeHistoryDriver } from '@cycle/history';
 import switchPath from 'switch-path';
 import {routerify} from 'cyclic-router';
+import sampleCombine from 'xstream/extra/sampleCombine'
 
 function Home(sources) {
   const vtree$ = xs.of(h('h1', {}, 'Hello I am Home'));
   return {
     DOM: vtree$
+  };
+}
+
+function TodoForm({DOM, HTTP}) {
+
+  const defaultPageState = {
+    response: {}
+  };
+  // DOM からの入力イベントを取得する
+  const eventClickPost$ = DOM.select('#post').events('click');
+  const eventInputPostDue$ = DOM.select('#post-due').events('input');
+  const eventInputPostTask$ = DOM.select('#post-task').events('input');
+  const eventInputPostStatus$ = DOM.select('#post-status').events('input');
+
+  const request$ = xs.from(eventClickPost$).compose(sampleCombine(
+    eventInputPostDue$.map((e) => (e.ownerTarget).value),
+    eventInputPostTask$.map((e) => (e.ownerTarget).value),
+    eventInputPostStatus$.map((e) => (e.ownerTarget).value))).
+    map(x => ({
+      url: 'http://127.0.0.1:3000/todos.json',
+      category: 'api',
+      method: 'POST',
+      send: {
+        type: 'application/json',
+        todo: {
+          due: x[1],
+          task: x[2],
+          status: x[3]
+        }
+      }
+    })
+  );
+
+  // レスポンス Observable を取得する
+  const response$ = HTTP.select('api').flatten().startWith({response: {}});
+  const vtree$ = xs.of(h('div', [
+    h('div.form-group', [h('div', '期限日'), h('input#post-due.form-control')]),
+    h('div.form-group', [h('div', 'タスク内容'),h('input#post-task.form-control')]),
+    h('div.form-group', [h('div', '状態'),h('input#post-status.form-control')]),
+    h('button#post.btn.btn-outline-primary.btn-block', ['POST'])
+  ]));
+
+  return {
+    DOM: vtree$,
+    HTTP: request$,
   };
 }
 
@@ -71,8 +117,8 @@ function Todo({props$, sources}) {
 
 const routes = {
   '/': TodoList,
-  '/other': TodoList,
-  '/todos/:id': id => sources => Todo({props$: {id}, sources})
+  '/todos/:id': id => sources => Todo({props$: {id}, sources}),
+  '/new': TodoForm,
 };
 
 function main(sources) {
@@ -102,10 +148,7 @@ function navbar() {
   return h('div.pure-menu.pure-menu-horizontal', {}, [
     h('ul.pure-menu-list', {}, [
       h('li.pure-menu-item', {}, [
-        h('a.pure-menu-link', { props: { href: '/' } }, 'Home')
-      ]),
-      h('li.pure-menu-item', {}, [
-        h('a.pure-menu-link', { props: { href: '/about' } }, 'About')
+        h('a.pure-menu-link', { props: { href: '/new' } }, 'New')
       ]),
       h('li.pure-menu-item', {}, [
         h('a.pure-menu-link', { props: { href: '/other' } }, 'TodoList')
