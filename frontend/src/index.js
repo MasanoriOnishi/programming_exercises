@@ -18,7 +18,7 @@ function TodoList(sources) {
     url: 'http://127.0.0.1:3000/todos', // GET method by default
     category: 'todos',
   });
-  let renderTodo = todo => tr([td(todo.due), td(todo.task), td(todo.status), td(a({ props: { href: '/about' } }, 'Show'))])
+  let renderTodo = todo => tr([td(todo.due), td(todo.task), td(todo.status), td(a({ props: { href: '/todos/' + todo.id } }, 'Show'))])
   const todos$ = sources.HTTP.select('todos')
     .flatten()
     .map(res => res.body)
@@ -41,43 +41,38 @@ function TodoList(sources) {
   };
 }
 
-function About(sources) {
-  const getRandomUser$ = sources.DOM.select('.get-random').events('click')
-    .map(() => {
-      const randomNum = Math.round(Math.random() * 9) + 1;
-      return {
-        url: 'https://jsonplaceholder.typicode.com/users/' + String(randomNum),
-        category: 'user',
-        method: 'GET'
-      };
-    });
+function Todo({props$, sources}) {
+  let request$ = xs.of({
+    url: 'http://127.0.0.1:3000/todos/' + String(props$.id) + '.json', // GET method by default
+    category: 'todo',
+  });
 
-  const user$ = sources.HTTP.select('user')
+  const todo$ = sources.HTTP.select('todo')
     .flatten()
     .map(res => res.body)
     .startWith(null);
 
-  const vdom$ = user$.map(user =>
-    div('.users', [
-      button('.get-random', 'Get random user'),
-      user === null ? null : div('.user-details', [
-        h1('.user-name', user.name),
-        h4('.user-email', user.email),
-        a('.user-website', {attrs: {href: user.website}}, user.website)
+  const vdom$ = todo$.map(todo =>
+    div('.todos', [
+      todo === null ? null : div('.todo-details', [
+        h1('.todo-name', todo.due),
+        h4('.todo-email', todo.task),
+        h4('.todo-email', todo.status),
+        a('.user-website', {attrs: {href: '/'}}, 'Back')
       ])
     ])
   );
 
   return {
     DOM: vdom$,
-    HTTP: getRandomUser$
+    HTTP: request$
   };
 }
 
 const routes = {
   '/': TodoList,
-  '/about': About,
-  '/other': TodoList
+  '/other': TodoList,
+  '/todos/:id': id => sources => Todo({props$: {id}, sources})
 };
 
 function main(sources) {
