@@ -117,7 +117,6 @@ function Todo({props$, sources}) {
 
 const routes = {
   '/': TodoList,
-  '/other': TodoList,
   '/todos/:id': id => sources => Todo({props$: {id}, sources}),
   '/new': TodoForm,
 };
@@ -148,9 +147,6 @@ function main(sources) {
 function navbar() {
   return h('div.pure-menu.pure-menu-horizontal', {}, [
     h('ul.pure-menu-list', {}, [
-      h('li.pure-menu-item', {}, [
-        h('a.pure-menu-link', { props: { href: '/' } }, 'Home')
-      ]),
       h('li.pure-menu-item', {}, [
         h('a.pure-menu-link', { props: { href: '/new' } }, 'New')
       ]),
