@@ -3,6 +3,8 @@ import {run} from '@cycle/run';
 import {makeHTTPDriver} from '@cycle/http';
 import {div, h1, makeDOMDriver, button, h4, a, tr, table, tbody, thead, td, li, ul, span, th, h} from '@cycle/dom';
 import { makeHistoryDriver } from '@cycle/history';
+import switchPath from 'switch-path';
+import {routerify} from 'cyclic-router';
 
 function Home(sources) {
   const vtree$ = xs.of(h('h1', {}, 'Hello I am Home'));
@@ -72,7 +74,6 @@ function About(sources) {
   };
 }
 
-
 const routes = {
   '/': TodoList,
   '/about': About,
@@ -80,21 +81,23 @@ const routes = {
 };
 
 function main(sources) {
+  const {router} = sources
+  const match$ = router.define(routes)
+  const page$ = match$.map(({path, value}) => {
+    return value(Object.assign({}, sources, {
+      router: sources.router.path(path)
+    }));
+  });
+
   const clickHref$ = sources.DOM.select('a').events('click');
   const history$ = clickHref$.map(ev => ev.target.pathname);
-  const history_data$ = sources.history
-    .map(location => location.pathname)
-    .map(pathname => routes[pathname])
-    .map(Component => Component(sources))
-
-  const vtree$ = history_data$.map(x => x.DOM).flatten().map(childVnode => h('div#app', {}, [navbar(), childVnode]));
-  const requests$ = history_data$.map(x => x.HTTP).filter(x => !!x).flatten();
+  const vtree$ = page$.map(c => c.DOM).flatten().map(childVnode => h('div#app', {}, [navbar(), childVnode]));
+  const requests$ = page$.map(x => x.HTTP).filter(x => !!x).flatten();
 
   const sinks = {
     DOM: vtree$,
-    history: history$,
+    router: history$,
     preventDefault: clickHref$,
-    debug: sources.history,
     HTTP: requests$
   };
   return sinks;
@@ -116,12 +119,13 @@ function navbar() {
   ]);
 }
 
+const mainWithRouting = routerify(main, switchPath)
+
 const drivers = {
   DOM: makeDOMDriver('#root'),
   history: makeHistoryDriver(),
   preventDefault: event$ => event$.subscribe({ next: e => e.preventDefault() }),
-  debug: x$ => x$.subscribe({ next: console.error }),
   HTTP: makeHTTPDriver()
 };
 
-run(main, drivers)
+run(mainWithRouting, drivers)
