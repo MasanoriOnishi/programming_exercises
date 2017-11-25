@@ -58,13 +58,43 @@ function TodoForm({DOM, HTTP}) {
   };
 }
 
+let deleteTodoUrl = function(todoId) {
+  return "http://127.0.0.1:3000/todos/" + todoId + '.json';
+};
+
+let getTodoId = function(evt) {
+  return parseInt(evt.target.dataset.todoId, 10);
+};
+
+const TODO_LIST_URL = "http://127.0.0.1:3000/todos";
+
 function TodoList(sources) {
-  let request$ = xs.of({
-    url: 'http://127.0.0.1:3000/todos', // GET method by default
-    category: 'todos',
-  });
-  let renderTodo = todo => tr([td(todo.due), td(todo.task), td(todo.status), td(a({ props: { href: '/todos/' + todo.id } }, 'Show'))])
-  const todos$ = sources.HTTP.select('todos')
+
+  let deleteTodo$ = sources.DOM.select("button.deleteTodo").events("click")
+    .map(getTodoId);
+
+  let request$ = deleteTodo$
+    .map(todoId => ({
+        method: "DEL",
+        url: deleteTodoUrl(todoId),
+        category: 'todos'
+      })
+    ).startWith({
+      url: TODO_LIST_URL,
+      category: 'todos',
+    }
+  );
+
+  let renderTodo = todo => tr([
+    td(todo.due),
+    td(todo.task),
+    td(todo.status),
+    td(a({ props: { href: '/todos/' + todo.id }}, 'Show')),
+    td(button(".deleteTodo", { attrs: { "data-todo-id": todo.id }}, 'Delete'))
+  ])
+
+  const todos$ = sources.HTTP
+    .select('todos')
     .flatten()
     .map(res => res.body)
     .startWith([]);
