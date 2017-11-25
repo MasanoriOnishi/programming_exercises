@@ -57,10 +57,13 @@ class TodosController < ApplicationController
   # DELETE /todos/1.json
   def destroy
     @todo.destroy
-    respond_to do |format|
-      format.html { redirect_to todos_url, notice: 'Todo was successfully destroyed.' }
-      format.json { head :no_content }
-    end
+    # respond_to do |format|
+    #   format.html { redirect_to todos_url, notice: 'Todo was successfully destroyed.' }
+    #   format.json { head :no_content }
+    # end
+    # 一覧で JSON を返す
+    @todos = Todo.all
+    render json: @todos
   end
 
   private

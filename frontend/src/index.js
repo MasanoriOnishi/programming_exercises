@@ -58,7 +58,6 @@ function TodoForm({DOM, HTTP}) {
   };
 }
 
-
 let deleteTodoUrl = function(todoId) {
   return "http://127.0.0.1:3000/todos/" + todoId + '.json';
 };
@@ -81,15 +80,7 @@ function TodoList(sources) {
         url: deleteTodoUrl(todoId)
       };
     })
-    .startWith({
-      url: 'http://127.0.0.1:3000/todos', // GET method by default
-      category: 'todos',
-    });
-
-  // let request$ = xs.of({
-  //   url: 'http://127.0.0.1:3000/todos', // GET method by default
-  //   category: 'todos',
-  // });
+    .startWith({url: TODO_LIST_URL});
 
   let renderTodo = todo => tr([
     td(todo.due),
@@ -99,11 +90,9 @@ function TodoList(sources) {
     td(button(".btn.btn-danger.btn-xs.deleteTodo", { attrs: { "data-todo-id": todo.id }}, 'Delete'))
   ])
 
-
-  const todos$ = sources.HTTP
-    .select('todos')
+  const todos$ = sources.HTTP.select()
     .flatten()
-    .map(res => res.body)
+    .map(res => JSON.parse(res.text))
     .startWith([]);
 
   const vdom$ = todos$.map(todo =>
