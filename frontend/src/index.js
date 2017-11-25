@@ -74,25 +74,29 @@ function TodoList(sources) {
     .map(getTodoId);
 
   let request$ = deleteTodo$
-    .map(function(todoId) {
-      return {
+    .map(todoId => ({
         method: "DEL",
-        url: deleteTodoUrl(todoId)
-      };
-    })
-    .startWith({url: TODO_LIST_URL});
+        url: deleteTodoUrl(todoId),
+        category: 'todos'
+      })
+    ).startWith({
+      url: TODO_LIST_URL,
+      category: 'todos',
+    }
+  );
 
   let renderTodo = todo => tr([
     td(todo.due),
     td(todo.task),
     td(todo.status),
     td(a({ props: { href: '/todos/' + todo.id }}, 'Show')),
-    td(button(".btn.btn-danger.btn-xs.deleteTodo", { attrs: { "data-todo-id": todo.id }}, 'Delete'))
+    td(button(".deleteTodo", { attrs: { "data-todo-id": todo.id }}, 'Delete'))
   ])
 
-  const todos$ = sources.HTTP.select()
+  const todos$ = sources.HTTP
+    .select('todos')
     .flatten()
-    .map(res => JSON.parse(res.text))
+    .map(res => res.body)
     .startWith([]);
 
   const vdom$ = todos$.map(todo =>
