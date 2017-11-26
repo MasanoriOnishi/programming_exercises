@@ -74,8 +74,8 @@ function TodoList(sources) {
     .map(getTodoId);
 
   let actions$ = xs.merge(
-    sources.DOM.select('button.sort_id').events('click')
-      .mapTo({type: 'list/sort'})
+    sources.DOM.select('button.sort_due').events('click')
+      .mapTo({type: 'list/sort'}),
   )
 
   let sort_flg = true
@@ -84,10 +84,10 @@ function TodoList(sources) {
     .mapTo(
       function changeRouteReducer(todosData) {
         if (sort_flg) {
-          todosData.sort((a, b) => b.id - a.id)
+          todosData.sort((a, b) => a.due > b.due ? 1 : -1)
           sort_flg = false
         } else {
-          todosData.sort((a, b) => a.id - b.id)
+          todosData.sort((a, b) => a.due < b.due ? 1 : -1)
           sort_flg = true
         }
         return todosData;
@@ -105,7 +105,6 @@ function TodoList(sources) {
     });
 
   let renderTodo = todo => tr([
-    td(todo.id),
     td(todo.due),
     td(todo.task),
     td(todo.status),
@@ -123,8 +122,7 @@ function TodoList(sources) {
   const vdom$ = changedtodos$.map(todo =>
     h('table', {}, [
       h('thead', {}, h('tr', {}, [
-        h('td', ["id",  h('button.sort_id', 'sort')]),
-        h('td', "Due"),
+        h('td', ["Due", h('button.sort_due', 'sort')]),
         h('td', "Task"),
         h('td', "Status")
       ])),
