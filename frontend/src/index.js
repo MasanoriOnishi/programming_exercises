@@ -78,17 +78,18 @@ function TodoList(sources) {
       .mapTo({type: 'list/sort'}),
   )
 
-  let sort_flg = true
+  // TODO 後でuser毎にstatusを保持できるようにする
+  let sort_status = "desc"
   const sortedList$ = actions$
     .map(action => action.type === 'list/sort')
     .mapTo(
       function changeRouteReducer(todosData) {
-        if (sort_flg) {
+        if (sort_status === "desc") {
           todosData.sort((a, b) => a.due > b.due ? 1 : -1)
-          sort_flg = false
+          sort_status = "asc"
         } else {
           todosData.sort((a, b) => a.due < b.due ? 1 : -1)
-          sort_flg = true
+          sort_status = "desc"
         }
         return todosData;
     });
