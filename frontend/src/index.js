@@ -73,6 +73,26 @@ function TodoList(sources) {
   let deleteTodo$ = sources.DOM.select("button.deleteTodo").events("click")
     .map(getTodoId);
 
+  let actions$ = xs.merge(
+    sources.DOM.select('button.sort_id').events('click')
+      .mapTo({type: 'list/sort'})
+  )
+
+  let sort_flg = true
+  const sortedList$ = actions$
+    .map(action => action.type === 'list/sort')
+    .mapTo(
+      function changeRouteReducer(todosData) {
+        if (sort_flg) {
+          todosData.sort((a, b) => b.id - a.id)
+          sort_flg = false
+        } else {
+          todosData.sort((a, b) => a.id - b.id)
+          sort_flg = true
+        }
+        return todosData;
+    });
+
   let request$ = deleteTodo$
     .map(todoId => ({
         method: "DEL",
@@ -82,10 +102,10 @@ function TodoList(sources) {
     ).startWith({
       url: TODO_LIST_URL,
       category: 'todos',
-    }
-  );
+    });
 
   let renderTodo = todo => tr([
+    td(todo.id),
     td(todo.due),
     td(todo.task),
     td(todo.status),
@@ -97,11 +117,13 @@ function TodoList(sources) {
     .select('todos')
     .flatten()
     .map(res => res.body)
-    .startWith([]);
 
-  const vdom$ = todos$.map(todo =>
+  let changedtodos$ = todos$.map(todo => xs.merge(sortedList$).fold((data, reducer) => reducer(data), todo)).flatten()
+
+  const vdom$ = changedtodos$.map(todo =>
     h('table', {}, [
       h('thead', {}, h('tr', {}, [
+        h('td', ["id",  h('button.sort_id', 'sort')]),
         h('td', "Due"),
         h('td', "Task"),
         h('td', "Status")
@@ -180,7 +202,7 @@ function navbar() {
         h('a.pure-menu-link', { props: { href: '/new' } }, 'New')
       ]),
       h('li.pure-menu-item', {}, [
-        h('a.pure-menu-link', { props: { href: '/other' } }, 'TodoList')
+        h('a.pure-menu-link', { props: { href: '/' } }, 'TodoList')
       ])
     ])
   ]);
