@@ -76,6 +76,12 @@ function TodoList(sources) {
   let actions$ = xs.merge(
     sources.DOM.select('button.sort_due').events('click')
       .mapTo({type: 'list/sort'}),
+    sources.DOM.select('button.filter_complete').events('click')
+      .mapTo({type: 'list/filter_complete'}),
+    sources.DOM.select('button.filter_uncomplete').events('click')
+      .mapTo({type: 'list/filter_uncomplete'}),
+    sources.DOM.select('button.filter_all').events('click')
+      .mapTo({type: 'list/filter_all'}),
   )
 
   // TODO 後でuser毎にstatusを保持できるようにする
@@ -94,6 +100,38 @@ function TodoList(sources) {
         return todosData;
     });
 
+  let filter_status = "all";
+  const filterdComletedList$ = actions$
+    .filter(action => action.type === 'list/filter_complete')
+    .mapTo((todosData) => {
+      filter_status = "complete"
+      return todosData}
+    );
+
+  const filterdAllList$ = actions$
+    .filter(action => action.type === 'list/filter_all')
+    .mapTo((todosData) => {
+      filter_status = "all"
+      return todosData}
+    );
+
+  const filterdUncompletedList$ = actions$
+    .filter(action => action.type === 'list/filter_uncomplete')
+    .mapTo((todosData) => {
+      filter_status = "uncomplete"
+      return todosData}
+    );
+
+  const filterStatusView = todo => {
+    if (filter_status === "complete"){
+      return todo.status === "完了" ? todo : null
+    } else if (filter_status === "uncomplete"){
+      return todo.status === "未対応" ? todo : null
+    } else {
+      return todo
+    }
+  }
+
   let request$ = deleteTodo$
     .map(todoId => ({
         method: "DEL",
@@ -105,30 +143,53 @@ function TodoList(sources) {
       category: 'todos',
     });
 
-  let renderTodo = todo => tr([
+  let renderTodo = todo => {
+    if (!todo) {
+      return;
+    }
+    return tr([
     td(todo.due),
     td(todo.task),
     td(todo.status),
     td(a({ props: { href: '/todos/' + todo.id }}, 'Show')),
     td(button(".deleteTodo", { attrs: { "data-todo-id": todo.id }}, 'Delete'))
-  ])
+    ])
+  }
 
   const todos$ = sources.HTTP
     .select('todos')
     .flatten()
     .map(res => res.body)
 
-  let changedtodos$ = todos$.map(todo => xs.merge(sortedList$).fold((data, reducer) => reducer(data), todo)).flatten()
+  let changedtodos$ = todos$.map(
+    todo => xs.merge(
+      sortedList$,
+      filterdComletedList$,
+      filterdAllList$,
+      filterdUncompletedList$
+    )
+    .fold((data, reducer) => reducer(data), todo))
+    .flatten()
 
-  const vdom$ = changedtodos$.map(todo =>
-    h('table', {}, [
-      h('thead', {}, h('tr', {}, [
-        h('td', ["Due", h('button.sort_due', 'sort')]),
-        h('td', "Task"),
-        h('td', "Status")
-      ])),
-      h('tbody',{}, todo.map(renderTodo))
-      ])
+  const vdom$ = changedtodos$
+    .map(todo =>
+      h('div', [
+        h('div', [
+          h('span', '状態: '),
+          h('button.filter_all', 'すべて'),
+          h('button.filter_complete', '完了'),
+          h('button.filter_uncomplete', '未対応')
+        ]),
+        h('table', {}, [
+          h('thead', {}, h('tr', {}, [
+            h('td', ["Due", h('button.sort_due', 'sort')]),
+            h('td', "Task"),
+            h('td', "Status")
+          ])),
+          h('tbody',{}, todo.map(filterStatusView).map(renderTodo))
+          ])
+        ]
+      )
     );
 
   return {
