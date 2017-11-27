@@ -73,21 +73,14 @@ function TodoList(sources) {
   let deleteTodo$ = sources.DOM.select("button.deleteTodo").events("click")
     .map(getTodoId);
 
-  let actions$ = xs.merge(
-    sources.DOM.select('button.sort_due').events('click')
-      .mapTo({type: 'list/sort'}),
-    sources.DOM.select('button.filter_complete').events('click')
-      .mapTo({type: 'list/filter_complete'}),
-    sources.DOM.select('button.filter_uncomplete').events('click')
-      .mapTo({type: 'list/filter_uncomplete'}),
-    sources.DOM.select('button.filter_all').events('click')
-      .mapTo({type: 'list/filter_all'}),
-  )
+  const sort_due_action$ = sources.DOM.select('button.sort_due').events('click')
+  const filter_complete_action$ = sources.DOM.select('button.filter_complete').events('click')
+  const filter_uncomplete_action$ = sources.DOM.select('button.filter_uncomplete').events('click')
+  const filter_all_action$ = sources.DOM.select('button.filter_all').events('click')
 
   // TODO 後でuser毎にstatusを保持できるようにする
   let sort_status = "desc"
-  const sortedList$ = actions$
-    .map(action => action.type === 'list/sort')
+  const sortedList$ = sort_due_action$
     .mapTo(
       function changeRouteReducer(todosData) {
         if (sort_status === "desc") {
@@ -101,22 +94,19 @@ function TodoList(sources) {
     });
 
   let filter_status = "all";
-  const filterdComletedList$ = actions$
-    .filter(action => action.type === 'list/filter_complete')
+  const filterdComletedList$ = filter_complete_action$
     .mapTo((todosData) => {
       filter_status = "complete"
       return todosData}
     );
 
-  const filterdAllList$ = actions$
-    .filter(action => action.type === 'list/filter_all')
+  const filterdAllList$ = filter_all_action$
     .mapTo((todosData) => {
       filter_status = "all"
       return todosData}
     );
 
-  const filterdUncompletedList$ = actions$
-    .filter(action => action.type === 'list/filter_uncomplete')
+  const filterdUncompletedList$ = filter_uncomplete_action$
     .mapTo((todosData) => {
       filter_status = "uncomplete"
       return todosData}
