@@ -73,53 +73,13 @@ function TodoList(sources) {
   let deleteTodo$ = sources.DOM.select("button.deleteTodo").events("click")
     .map(getTodoId);
 
-  const sort_due_action$ = sources.DOM.select('button.sort_due').events('click')
-  const filter_complete_action$ = sources.DOM.select('button.filter_complete').events('click')
-  const filter_uncomplete_action$ = sources.DOM.select('button.filter_uncomplete').events('click')
-  const filter_all_action$ = sources.DOM.select('button.filter_all').events('click')
-
-  // TODO 後でuser毎にstatusを保持できるようにする
-  let sort_status = "desc"
-  const sortedList$ = sort_due_action$
-    .mapTo(
-      function changeRouteReducer(todosData) {
-        if (sort_status === "desc") {
-          todosData.sort((a, b) => a.due > b.due ? 1 : -1)
-          sort_status = "asc"
-        } else {
-          todosData.sort((a, b) => a.due < b.due ? 1 : -1)
-          sort_status = "desc"
-        }
-        return todosData;
-    });
-
-  let filter_status = "all";
-  const filterdComletedList$ = filter_complete_action$
-    .mapTo((todosData) => {
-      filter_status = "complete"
-      return todosData}
-    );
-
-  const filterdAllList$ = filter_all_action$
-    .mapTo((todosData) => {
-      filter_status = "all"
-      return todosData}
-    );
-
-  const filterdUncompletedList$ = filter_uncomplete_action$
-    .mapTo((todosData) => {
-      filter_status = "uncomplete"
-      return todosData}
-    );
-
-  const filterStatusView = todo => {
-    if (filter_status === "complete"){
-      return todo.status === "完了" ? todo : null
-    } else if (filter_status === "uncomplete"){
-      return todo.status === "未対応" ? todo : null
-    } else {
-      return todo
-    }
+  function intent(domSource) {
+    return {
+      sort_due_action$: domSource.select('button.sort_due').events('click'),
+      filter_complete_action$: domSource.select('button.filter_complete').events('click'),
+      filter_uncomplete_action$: domSource.select('button.filter_uncomplete').events('click'),
+      filter_all_action$: domSource.select('button.filter_all').events('click'),
+    };
   }
 
   let request$ = deleteTodo$
@@ -132,6 +92,58 @@ function TodoList(sources) {
       url: TODO_LIST_URL,
       category: 'todos',
     });
+
+  // TODO 後でuser毎にstatusを保持できるようにする
+  let sort_status = "desc"
+  let filter_status = "all";
+
+  function model(actions) {
+    const todos$ = sources.HTTP
+      .select('todos')
+      .flatten()
+      .map(res => res.body)
+
+    const sortedList$ = actions.sort_due_action$
+      .mapTo(
+        function changeRouteReducer(todosData) {
+          if (sort_status === "desc") {
+            todosData.sort((a, b) => a.due > b.due ? 1 : -1)
+            sort_status = "asc"
+          } else {
+            todosData.sort((a, b) => a.due < b.due ? 1 : -1)
+            sort_status = "desc"
+          }
+          return todosData;
+      });
+
+    const filterdComletedList$ = actions.filter_complete_action$
+      .mapTo((todosData) => {
+        filter_status = "complete"
+        return todosData}
+      );
+
+    const filterdAllList$ = actions.filter_all_action$
+      .mapTo((todosData) => {
+        filter_status = "all"
+        return todosData}
+      );
+
+    const filterdUncompletedList$ = actions.filter_uncomplete_action$
+      .mapTo((todosData) => {
+        filter_status = "uncomplete"
+        return todosData}
+      );
+
+    return todos$.map(
+      todos => xs.merge(
+        sortedList$,
+        filterdComletedList$,
+        filterdAllList$,
+        filterdUncompletedList$
+      )
+      .fold((data, reducer) => reducer(data), todos))
+      .flatten()
+  }
 
   let renderTodo = todo => {
     if (!todo) {
@@ -146,17 +158,14 @@ function TodoList(sources) {
     ])
   }
 
-
-  function model(todos$){
-    return todos$.map(
-      todos => xs.merge(
-        sortedList$,
-        filterdComletedList$,
-        filterdAllList$,
-        filterdUncompletedList$
-      )
-      .fold((data, reducer) => reducer(data), todos))
-      .flatten()
+  const filterStatusView = todo => {
+    if (filter_status === "complete"){
+      return todo.status === "完了" ? todo : null
+    } else if (filter_status === "uncomplete"){
+      return todo.status === "未対応" ? todo : null
+    } else {
+      return todo
+    }
   }
 
   function view(state$) {
@@ -181,13 +190,7 @@ function TodoList(sources) {
     );
   }
 
-  const todos$ = sources.HTTP
-    .select('todos')
-    .flatten()
-    .map(res => res.body)
-
-  const state$ = model(todos$)
-  const vdom$ = view(state$);
+  const vdom$ = view(model(intent(sources.DOM)));
 
   return {
     DOM: vdom$,
