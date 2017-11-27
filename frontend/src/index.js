@@ -156,23 +156,21 @@ function TodoList(sources) {
     ])
   }
 
-  const todos$ = sources.HTTP
-    .select('todos')
-    .flatten()
-    .map(res => res.body)
 
-  let changedtodos$ = todos$.map(
-    todo => xs.merge(
-      sortedList$,
-      filterdComletedList$,
-      filterdAllList$,
-      filterdUncompletedList$
-    )
-    .fold((data, reducer) => reducer(data), todo))
-    .flatten()
+  function model(todos$){
+    return todos$.map(
+      todos => xs.merge(
+        sortedList$,
+        filterdComletedList$,
+        filterdAllList$,
+        filterdUncompletedList$
+      )
+      .fold((data, reducer) => reducer(data), todos))
+      .flatten()
+  }
 
-  const vdom$ = changedtodos$
-    .map(todo =>
+  function view(state$) {
+    return state$.map(todos =>
       h('div', [
         h('div', [
           h('span', '状態: '),
@@ -186,11 +184,20 @@ function TodoList(sources) {
             h('td', "Task"),
             h('td', "Status")
           ])),
-          h('tbody',{}, todo.map(filterStatusView).map(renderTodo))
+          h('tbody',{}, todos.map(filterStatusView).map(renderTodo))
           ])
         ]
       )
     );
+  }
+
+  const todos$ = sources.HTTP
+    .select('todos')
+    .flatten()
+    .map(res => res.body)
+
+  const state$ = model(todos$)
+  const vdom$ = view(state$);
 
   return {
     DOM: vdom$,
