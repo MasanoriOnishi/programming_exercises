@@ -158,17 +158,16 @@ function TodoList(sources) {
     ])
   }
 
-  const filterStatusView = todo => {
-    if (filter_status === "complete"){
-      return todo.status === "完了" ? todo : null
-    } else if (filter_status === "uncomplete"){
-      return todo.status === "未対応" ? todo : null
-    } else {
-      return todo
-    }
-  }
-
   function view(state$) {
+    const filterStatusView = todo => {
+      if (filter_status === "complete"){
+        return todo.status === "完了" ? todo : null
+      } else if (filter_status === "uncomplete"){
+        return todo.status === "未対応" ? todo : null
+      } else {
+        return todo
+      }
+    }
     return state$.map(todos =>
       h('div', [
         h('div', [
