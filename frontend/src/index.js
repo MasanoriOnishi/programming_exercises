@@ -6,6 +6,7 @@ import { makeHistoryDriver } from '@cycle/history';
 import switchPath from 'switch-path';
 import {routerify} from 'cyclic-router';
 import sampleCombine from 'xstream/extra/sampleCombine'
+import {makeAuth0Driver, protect} from "cyclejs-auth0";
 
 function Home(sources) {
   const vtree$ = xs.of(h('h1', {}, 'Hello I am Home'));
@@ -175,7 +176,7 @@ function main(sources) {
   const {router} = sources
   const match$ = router.define(routes)
   const page$ = match$.map(({path, value}) => {
-    return value(Object.assign({}, sources, {
+    return protect(value)(Object.assign({}, sources, {
       router: sources.router.path(path)
     }));
   });
@@ -184,12 +185,14 @@ function main(sources) {
   const history$ = clickHref$.map(ev => ev.target.pathname);
   const vtree$ = page$.map(c => c.DOM).flatten().map(childVnode => h('div#app', {}, [navbar(), childVnode]));
   const requests$ = page$.map(x => x.HTTP).filter(x => !!x).flatten();
+  const auth$ = page$.map(x => x.auth0).filter(x => !!x).flatten();
 
   const sinks = {
     DOM: vtree$,
     router: history$,
     preventDefault: clickHref$,
-    HTTP: requests$
+    HTTP: requests$,
+    auth0: auth$
   };
   return sinks;
 }
@@ -213,7 +216,8 @@ const drivers = {
   DOM: makeDOMDriver('#root'),
   history: makeHistoryDriver(),
   preventDefault: event$ => event$.subscribe({ next: e => e.preventDefault() }),
-  HTTP: makeHTTPDriver()
+  HTTP: makeHTTPDriver(),
+  auth0: makeAuth0Driver('E1pNA0XWgOg5IemG3zpYr2N9u17ETlwL', 'todoapplication.auth0.com')
 };
 
 run(mainWithRouting, drivers)
