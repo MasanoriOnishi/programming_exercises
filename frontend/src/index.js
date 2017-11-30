@@ -74,26 +74,14 @@ function TodoList(sources) {
   let deleteTodo$ = sources.DOM.select("button.deleteTodo").events("click")
     .map(getTodoId);
 
-  let actions$ = xs.merge(
-    sources.DOM.select('button.sort_due').events('click')
-      .mapTo({type: 'list/sort'}),
-  )
-
-  // TODO 後でuser毎にstatusを保持できるようにする
-  let sort_status = "desc"
-  const sortedList$ = actions$
-    .map(action => action.type === 'list/sort')
-    .mapTo(
-      function changeRouteReducer(todosData) {
-        if (sort_status === "desc") {
-          todosData.sort((a, b) => a.due > b.due ? 1 : -1)
-          sort_status = "asc"
-        } else {
-          todosData.sort((a, b) => a.due < b.due ? 1 : -1)
-          sort_status = "desc"
-        }
-        return todosData;
-    });
+  function intent(domSource) {
+    return {
+      sort_due_action$: domSource.select('button.sort_due').events('click'),
+      filter_complete_action$: domSource.select('button.filter_complete').events('click'),
+      filter_uncomplete_action$: domSource.select('button.filter_uncomplete').events('click'),
+      filter_all_action$: domSource.select('button.filter_all').events('click'),
+    };
+  }
 
   let request$ = deleteTodo$
     .map(todoId => ({
@@ -106,31 +94,103 @@ function TodoList(sources) {
       category: 'todos',
     });
 
-  let renderTodo = todo => tr([
+  // TODO 後でuser毎にstatusを保持できるようにする
+  let sort_status = "desc"
+  let filter_status = "all";
+
+  function model(actions) {
+    const todos$ = sources.HTTP
+      .select('todos')
+      .flatten()
+      .map(res => res.body)
+
+    const sortedList$ = actions.sort_due_action$
+      .mapTo(
+        function changeRouteReducer(todosData) {
+          if (sort_status === "desc") {
+            todosData.sort((a, b) => a.due > b.due ? 1 : -1)
+            sort_status = "asc"
+          } else {
+            todosData.sort((a, b) => a.due < b.due ? 1 : -1)
+            sort_status = "desc"
+          }
+          return todosData;
+      });
+
+    const filterdComletedList$ = actions.filter_complete_action$
+      .mapTo((todosData) => {
+        filter_status = "complete"
+        return todosData}
+      );
+
+    const filterdAllList$ = actions.filter_all_action$
+      .mapTo((todosData) => {
+        filter_status = "all"
+        return todosData}
+      );
+
+    const filterdUncompletedList$ = actions.filter_uncomplete_action$
+      .mapTo((todosData) => {
+        filter_status = "uncomplete"
+        return todosData}
+      );
+
+    return todos$.map(
+      todos => xs.merge(
+        sortedList$,
+        filterdComletedList$,
+        filterdAllList$,
+        filterdUncompletedList$
+      )
+      .fold((data, reducer) => reducer(data), todos))
+      .flatten()
+  }
+
+  let renderTodo = todo => {
+    if (!todo) {
+      return;
+    }
+    return tr([
     td(todo.due),
     td(todo.task),
     td(todo.status),
     td(a({ props: { href: '/todos/' + todo.id }}, 'Show')),
     td(button(".deleteTodo", { attrs: { "data-todo-id": todo.id }}, 'Delete'))
-  ])
+    ])
+  }
 
-  const todos$ = sources.HTTP
-    .select('todos')
-    .flatten()
-    .map(res => res.body)
-
-  let changedtodos$ = todos$.map(todo => xs.merge(sortedList$).fold((data, reducer) => reducer(data), todo)).flatten()
-
-  const vdom$ = changedtodos$.map(todo =>
-    h('table', {}, [
-      h('thead', {}, h('tr', {}, [
-        h('td', ["Due", h('button.sort_due', 'sort')]),
-        h('td', "Task"),
-        h('td', "Status")
-      ])),
-      h('tbody',{}, todo.map(renderTodo))
-      ])
+  function view(state$) {
+    const filterStatusView = todo => {
+      if (filter_status === "complete"){
+        return todo.status === "完了" ? todo : null
+      } else if (filter_status === "uncomplete"){
+        return todo.status === "未対応" ? todo : null
+      } else {
+        return todo
+      }
+    }
+    return state$.map(todos =>
+      h('div', [
+        h('div', [
+          h('span', '状態: '),
+          h('button.filter_all', 'すべて'),
+          h('button.filter_complete', '完了'),
+          h('button.filter_uncomplete', '未対応')
+        ]),
+        h('table', {}, [
+          h('thead', {}, h('tr', {}, [
+            h('td', ["Due", h('button.sort_due', 'sort')]),
+            h('td', "Task"),
+            h('td', "Status")
+          ])),
+          h('tbody',{}, todos.map(filterStatusView).map(renderTodo))
+          ])
+        ]
+      )
     );
+  }
+
+  const vdom$ = view(model(intent(sources.DOM)));
 
   return {
     DOM: vdom$,
