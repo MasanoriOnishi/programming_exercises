@@ -185,14 +185,17 @@ function main(sources) {
   const history$ = clickHref$.map(ev => ev.target.pathname);
   const vtree$ = page$.map(c => c.DOM).flatten().map(childVnode => h('div#app', {}, [navbar(), childVnode]));
   const requests$ = page$.map(x => x.HTTP).filter(x => !!x).flatten();
-  const auth$ = page$.map(x => x.auth0).filter(x => !!x).flatten();
+  const logout$ = sources.DOM
+      .select(".logout")
+      .events("click")
+      .mapTo({ action: "logout" });
 
   const sinks = {
     DOM: vtree$,
     router: history$,
     preventDefault: clickHref$,
     HTTP: requests$,
-    auth0: auth$
+    auth0: xs.merge(page$.map(x => x.auth0).filter(x => !!x).flatten(), logout$)
   };
   return sinks;
 }
@@ -205,7 +208,8 @@ function navbar() {
       ]),
       h('li.pure-menu-item', {}, [
         h('a.pure-menu-link', { props: { href: '/' } }, 'TodoList')
-      ])
+      ]),
+      h("button.logout", "logout")
     ])
   ]);
 }
@@ -217,7 +221,10 @@ const drivers = {
   history: makeHistoryDriver(),
   preventDefault: event$ => event$.subscribe({ next: e => e.preventDefault() }),
   HTTP: makeHTTPDriver(),
-  auth0: makeAuth0Driver('E1pNA0XWgOg5IemG3zpYr2N9u17ETlwL', 'todoapplication.auth0.com')
+  auth0: makeAuth0Driver(
+    'E1pNA0XWgOg5IemG3zpYr2N9u17ETlwL',
+    'todoapplication.auth0.com',
+  )
 };
 
 run(mainWithRouting, drivers)
