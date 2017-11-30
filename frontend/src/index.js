@@ -276,6 +276,14 @@ function navbar() {
 
 const mainWithRouting = routerify(main, switchPath)
 
+const auth0Config = {
+    auth: {
+        params: { scope: "openid nickname" },
+        responseType: "token",
+    },
+    closable: false,
+};
+
 const drivers = {
   DOM: makeDOMDriver('#root'),
   history: makeHistoryDriver(),
@@ -284,6 +292,7 @@ const drivers = {
   auth0: makeAuth0Driver(
     'E1pNA0XWgOg5IemG3zpYr2N9u17ETlwL',
     'todoapplication.auth0.com',
+    auth0Config
   )
 };
 
