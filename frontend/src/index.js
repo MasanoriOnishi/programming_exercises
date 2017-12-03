@@ -59,6 +59,29 @@ function TodoForm({DOM, HTTP}) {
   };
 }
 
+function CallBack({DOM, HTTP}) {
+  const vtree$ = xs.of(h('h1', {}, 'Hello I am Home'));
+  console.log("###########################")
+  const request$ = xs.of({
+      url: 'http://127.0.0.1:3000/users.json',
+      category: 'api',
+      method: 'POST',
+      send: {
+        type: 'application/json',
+        user: {
+          name: 'hoge',
+          email: 'fuga@gmail.com',
+        }
+      }
+    });
+
+  return {
+    DOM: vtree$,
+    HTTP: request$,
+    router: xs.of('/todos')
+  };
+}
+
 let deleteTodoUrl = function(todoId) {
   return "http://127.0.0.1:3000/todos/" + todoId + '.json';
 };
@@ -227,9 +250,10 @@ function Todo({props$, sources}) {
 }
 
 const routes = {
-  '/': TodoList,
+  '/': CallBack,
   '/todos/:id': id => sources => Todo({props$: {id}, sources}),
   '/new': TodoForm,
+  '/todos': TodoList,
 };
 
 function main(sources) {
@@ -237,7 +261,7 @@ function main(sources) {
   const match$ = router.define(routes)
   const page$ = match$.map(({path, value}) => {
     return protect(value)(Object.assign({}, sources, {
-      router: sources.router.path(path)
+      router: router.path(path)
     }));
   });
 
@@ -250,9 +274,20 @@ function main(sources) {
       .events("click")
       .mapTo({ action: "logout" });
 
+  const router$ = page$.map(
+    c => {
+      let router = c.router
+      if (router){
+        return router;
+      } else {
+        return history$
+      }
+    }
+  ).flatten()
+
   const sinks = {
     DOM: vtree$,
-    router: history$,
+    router: router$,
     preventDefault: clickHref$,
     HTTP: requests$,
     auth0: xs.merge(page$.map(x => x.auth0).filter(x => !!x).flatten(), logout$)
