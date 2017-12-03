@@ -4,7 +4,8 @@ class TodosController < ApplicationController
   # GET /todos
   # GET /todos.json
   def index
-    @todos = Todo.all
+    user_id = params.require(:user_id)
+    @todos = Todo.where(user_id:user_id)
     # ADD:一覧で JSON を返す
     render json: @todos
   end
@@ -27,7 +28,6 @@ class TodosController < ApplicationController
   # POST /todos.json
   def create
     @todo = Todo.new(todo_params)
-
     respond_to do |format|
       if @todo.save
         format.html { redirect_to @todo, notice: 'Todo was successfully created.' }
@@ -74,6 +74,6 @@ class TodosController < ApplicationController
 
     # Never trust parameters from the scary internet, only allow the white list through.
     def todo_params
-      params.require(:todo).permit(:due, :task, :status)
+      params.require(:todo).permit(:due, :task, :status, :user_id)
     end
 end

@@ -7,6 +7,7 @@ import switchPath from 'switch-path';
 import {routerify} from 'cyclic-router';
 import sampleCombine from 'xstream/extra/sampleCombine'
 import {makeAuth0Driver, protect} from "cyclejs-auth0";
+import jwt from "jwt-decode";
 
 function Home(sources) {
   const vtree$ = xs.of(h('h1', {}, 'Hello I am Home'));
@@ -15,7 +16,7 @@ function Home(sources) {
   };
 }
 
-function TodoForm({DOM, HTTP}) {
+function TodoForm({DOM, HTTP, props}) {
   const defaultPageState = {
     response: {}
   };
@@ -28,7 +29,8 @@ function TodoForm({DOM, HTTP}) {
   const request$ = xs.from(eventClickPost$).compose(sampleCombine(
     eventInputPostDue$.map((e) => (e.ownerTarget).value),
     eventInputPostTask$.map((e) => (e.ownerTarget).value),
-    eventInputPostStatus$.map((e) => (e.ownerTarget).value))).
+    eventInputPostStatus$.map((e) => (e.ownerTarget).value),
+    getAuthUserInfo(props.tokens$))).
     map(x => ({
       url: 'http://127.0.0.1:3000/todos.json',
       category: 'api',
@@ -38,7 +40,8 @@ function TodoForm({DOM, HTTP}) {
         todo: {
           due: x[1],
           task: x[2],
-          status: x[3]
+          status: x[3],
+          user_id: x[4].sub,
         }
       }
     })
@@ -67,11 +70,19 @@ let getTodoId = function(evt) {
   return parseInt(evt.target.dataset.todoId, 10);
 };
 
+let getAuthUserInfo = function(tokens) {
+  return tokens
+    .map(tokens => {
+        return tokens ? // /!\ if user is not logged in, tokens is null
+          jwt(tokens.idToken) :
+          null
+    });
+};
+
 const TODO_LIST_URL = "http://127.0.0.1:3000/todos";
 
-function TodoList(sources) {
-
-  let deleteTodo$ = sources.DOM.select("button.deleteTodo").events("click")
+function TodoList({DOM, HTTP, props}) {
+  let deleteTodo$ = DOM.select("button.deleteTodo").events("click")
     .map(getTodoId);
 
   function intent(domSource) {
@@ -83,23 +94,30 @@ function TodoList(sources) {
     };
   }
 
-  let request$ = deleteTodo$
+  let todos_action$ = getAuthUserInfo(props.tokens$)
+    .map(x => ({
+      url: TODO_LIST_URL,
+      category: 'todos',
+      method: 'GET',
+      query: {
+        user_id: x.sub
+      }}
+    ))
+
+  let delete_action$ = deleteTodo$
     .map(todoId => ({
         method: "DEL",
         url: deleteTodoUrl(todoId),
         category: 'todos'
-      })
-    ).startWith({
-      url: TODO_LIST_URL,
-      category: 'todos',
-    });
+      }
+    ))
 
   // TODO 後でuser毎にstatusを保持できるようにする
   let sort_status = "desc"
   let filter_status = "all";
 
   function model(actions) {
-    const todos$ = sources.HTTP
+    const todos$ = HTTP
       .select('todos')
       .flatten()
       .map(res => res.body)
@@ -190,11 +208,11 @@ function TodoList(sources) {
     );
   }
 
-  const vdom$ = view(model(intent(sources.DOM)));
+  const vdom$ = view(model(intent(DOM)));
 
   return {
     DOM: vdom$,
-    HTTP: request$
+    HTTP: xs.merge(todos_action$, delete_action$)
   };
 }
 
