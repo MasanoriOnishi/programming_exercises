@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20171112052123) do
+ActiveRecord::Schema.define(version: 20171203145514) do
 
   create_table "todos", force: :cascade, options: "ENGINE=InnoDB DEFAULT CHARSET=utf8" do |t|
     t.date "due"
@@ -18,6 +18,7 @@ ActiveRecord::Schema.define(version: 20171112052123) do
     t.string "status"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "user_id"
   end
 
 end
