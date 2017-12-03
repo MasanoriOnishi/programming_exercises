@@ -6,6 +6,8 @@ import { makeHistoryDriver } from '@cycle/history';
 import switchPath from 'switch-path';
 import {routerify} from 'cyclic-router';
 import sampleCombine from 'xstream/extra/sampleCombine'
+import {makeAuth0Driver, protect} from "cyclejs-auth0";
+import jwt from "jwt-decode";
 
 function Home(sources) {
   const vtree$ = xs.of(h('h1', {}, 'Hello I am Home'));
@@ -14,7 +16,7 @@ function Home(sources) {
   };
 }
 
-function TodoForm({DOM, HTTP}) {
+function TodoForm({DOM, HTTP, props}) {
   const defaultPageState = {
     response: {}
   };
@@ -27,7 +29,8 @@ function TodoForm({DOM, HTTP}) {
   const request$ = xs.from(eventClickPost$).compose(sampleCombine(
     eventInputPostDue$.map((e) => (e.ownerTarget).value),
     eventInputPostTask$.map((e) => (e.ownerTarget).value),
-    eventInputPostStatus$.map((e) => (e.ownerTarget).value))).
+    eventInputPostStatus$.map((e) => (e.ownerTarget).value),
+    getAuthUserInfo(props.tokens$))).
     map(x => ({
       url: 'http://127.0.0.1:3000/todos.json',
       category: 'api',
@@ -37,7 +40,8 @@ function TodoForm({DOM, HTTP}) {
         todo: {
           due: x[1],
           task: x[2],
-          status: x[3]
+          status: x[3],
+          user_id: x[4].sub,
         }
       }
     })
@@ -66,11 +70,19 @@ let getTodoId = function(evt) {
   return parseInt(evt.target.dataset.todoId, 10);
 };
 
+let getAuthUserInfo = function(tokens) {
+  return tokens
+    .map(tokens => {
+        return tokens ? // /!\ if user is not logged in, tokens is null
+          jwt(tokens.idToken) :
+          null
+    });
+};
+
 const TODO_LIST_URL = "http://127.0.0.1:3000/todos";
 
-function TodoList(sources) {
-
-  let deleteTodo$ = sources.DOM.select("button.deleteTodo").events("click")
+function TodoList({DOM, HTTP, props}) {
+  let deleteTodo$ = DOM.select("button.deleteTodo").events("click")
     .map(getTodoId);
 
   function intent(domSource) {
@@ -82,23 +94,30 @@ function TodoList(sources) {
     };
   }
 
-  let request$ = deleteTodo$
+  let todos_action$ = getAuthUserInfo(props.tokens$)
+    .map(x => ({
+      url: TODO_LIST_URL,
+      category: 'todos',
+      method: 'GET',
+      query: {
+        user_id: x.sub
+      }}
+    ))
+
+  let delete_action$ = deleteTodo$
     .map(todoId => ({
         method: "DEL",
         url: deleteTodoUrl(todoId),
         category: 'todos'
-      })
-    ).startWith({
-      url: TODO_LIST_URL,
-      category: 'todos',
-    });
+      }
+    ))
 
   // TODO 後でuser毎にstatusを保持できるようにする
   let sort_status = "desc"
   let filter_status = "all";
 
   function model(actions) {
-    const todos$ = sources.HTTP
+    const todos$ = HTTP
       .select('todos')
       .flatten()
       .map(res => res.body)
@@ -189,11 +208,11 @@ function TodoList(sources) {
     );
   }
 
-  const vdom$ = view(model(intent(sources.DOM)));
+  const vdom$ = view(model(intent(DOM)));
 
   return {
     DOM: vdom$,
-    HTTP: request$
+    HTTP: xs.merge(todos_action$, delete_action$)
   };
 }
 
@@ -235,7 +254,7 @@ function main(sources) {
   const {router} = sources
   const match$ = router.define(routes)
   const page$ = match$.map(({path, value}) => {
-    return value(Object.assign({}, sources, {
+    return protect(value)(Object.assign({}, sources, {
       router: sources.router.path(path)
     }));
   });
@@ -244,12 +263,17 @@ function main(sources) {
   const history$ = clickHref$.map(ev => ev.target.pathname);
   const vtree$ = page$.map(c => c.DOM).flatten().map(childVnode => h('div#app', {}, [navbar(), childVnode]));
   const requests$ = page$.map(x => x.HTTP).filter(x => !!x).flatten();
+  const logout$ = sources.DOM
+      .select(".logout")
+      .events("click")
+      .mapTo({ action: "logout" });
 
   const sinks = {
     DOM: vtree$,
     router: history$,
     preventDefault: clickHref$,
-    HTTP: requests$
+    HTTP: requests$,
+    auth0: xs.merge(page$.map(x => x.auth0).filter(x => !!x).flatten(), logout$)
   };
   return sinks;
 }
@@ -262,18 +286,32 @@ function navbar() {
       ]),
       h('li.pure-menu-item', {}, [
         h('a.pure-menu-link', { props: { href: '/' } }, 'TodoList')
-      ])
+      ]),
+      h("button.logout", "logout")
     ])
   ]);
 }
 
 const mainWithRouting = routerify(main, switchPath)
 
+const auth0Config = {
+    auth: {
+        params: { scope: "openid nickname" },
+        responseType: "token",
+    },
+    closable: false,
+};
+
 const drivers = {
   DOM: makeDOMDriver('#root'),
   history: makeHistoryDriver(),
   preventDefault: event$ => event$.subscribe({ next: e => e.preventDefault() }),
-  HTTP: makeHTTPDriver()
+  HTTP: makeHTTPDriver(),
+  auth0: makeAuth0Driver(
+    'E1pNA0XWgOg5IemG3zpYr2N9u17ETlwL',
+    'todoapplication.auth0.com',
+    auth0Config
+  )
 };
 
 run(mainWithRouting, drivers)
