@@ -43,7 +43,8 @@ function TodoForm({DOM, HTTP, props}) {
           status: x[3],
           user_id: x[4].sub,
         }
-      }
+      },
+      headers: {redirect: true, redirectUrl: '/'}
     })
   );
 
@@ -249,7 +250,8 @@ function Todo({props$, sources}) {
           user_id: x[4].sub,
           parent_id: props$.id,
         }
-      }
+      },
+      headers: {redirect: true, redirectUrl: '/todos/' + props$.id}
     })
   );
 
@@ -347,6 +349,13 @@ function main(sources) {
 
   const clickHref$ = sources.DOM.select('a').events('click');
   const history$ = clickHref$.map(ev => ev.target.pathname);
+  const serverRedirects$ = sources.HTTP
+    .select()
+    .filter(res$ => res$.request.method === 'POST')
+    .flatten() //Needed because HTTP gives an Observable when you map it
+    .debug(resp => {console.log('POST response', resp)})
+    .filter(resp => resp.status === 201 && resp.req.header && resp.req.header.redirectUrl)
+    .map(resp => resp.req.header.redirectUrl)
   const vtree$ = page$.map(c => c.DOM).flatten().map(childVnode => h('div#app', {}, [navbar(), childVnode]));
   const requests$ = page$.map(x => x.HTTP).filter(x => !!x).flatten();
   const logout$ = sources.DOM
@@ -356,7 +365,7 @@ function main(sources) {
 
   const sinks = {
     DOM: vtree$,
-    router: history$,
+    router: xs.merge(history$, serverRedirects$),
     preventDefault: clickHref$,
     HTTP: requests$,
     auth0: xs.merge(page$.map(x => x.auth0).filter(x => !!x).flatten(), logout$)
