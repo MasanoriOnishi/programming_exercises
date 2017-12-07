@@ -4,8 +4,14 @@ class TodosController < ApplicationController
   # GET /todos
   # GET /todos.json
   def index
-    user_id = params.require(:user_id)
-    @todos = Todo.where(user_id:user_id)
+    user_id = params.fetch(:user_id, nil)
+    parent_id = params.fetch(:parent_id, nil)
+    if parent_id
+      @todos = Todo.where(id:parent_id).or(Todo.where(parent_id:parent_id))
+      puts parent_id
+    else
+      @todos = Todo.where(user_id:user_id)
+    end
     # ADD:一覧で JSON を返す
     render json: @todos
   end
@@ -74,6 +80,6 @@ class TodosController < ApplicationController
 
     # Never trust parameters from the scary internet, only allow the white list through.
     def todo_params
-      params.require(:todo).permit(:due, :task, :status, :user_id)
+      params.require(:todo).permit(:due, :task, :status, :user_id, :parent_id)
     end
 end

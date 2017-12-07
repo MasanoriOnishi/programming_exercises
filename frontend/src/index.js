@@ -79,6 +79,21 @@ let getAuthUserInfo = function(tokens) {
     });
 };
 
+let renderTodo = todo => {
+  if (!todo) {
+    return;
+  }
+  return tr([
+  td(todo.id),
+  td(todo.due),
+  td(todo.task),
+  td(todo.status),
+  td(todo.parent_id || {}),
+  td(a({ props: { href: '/todos/' + todo.id }}, 'Show')),
+  td(button(".deleteTodo", { attrs: { "data-todo-id": todo.id }}, 'Delete'))
+  ])
+}
+
 const TODO_LIST_URL = "http://127.0.0.1:3000/todos";
 
 function TodoList({DOM, HTTP, props}) {
@@ -164,19 +179,6 @@ function TodoList({DOM, HTTP, props}) {
       .flatten()
   }
 
-  let renderTodo = todo => {
-    if (!todo) {
-      return;
-    }
-    return tr([
-    td(todo.due),
-    td(todo.task),
-    td(todo.status),
-    td(a({ props: { href: '/todos/' + todo.id }}, 'Show')),
-    td(button(".deleteTodo", { attrs: { "data-todo-id": todo.id }}, 'Delete'))
-    ])
-  }
-
   function view(state$) {
     const filterStatusView = todo => {
       if (filter_status === "complete"){
@@ -197,9 +199,11 @@ function TodoList({DOM, HTTP, props}) {
         ]),
         h('table', {}, [
           h('thead', {}, h('tr', {}, [
+            h('td', "ID"),
             h('td', ["Due", h('button.sort_due', 'sort')]),
             h('td', "Task"),
-            h('td', "Status")
+            h('td', "Status"),
+            h('td', "PID")
           ])),
           h('tbody',{}, todos.map(filterStatusView).map(renderTodo))
           ])
@@ -217,15 +221,85 @@ function TodoList({DOM, HTTP, props}) {
 }
 
 function Todo({props$, sources}) {
-  let request$ = xs.of({
+  const {HTTP, DOM, props} = sources
+  let todo_action$ = xs.of({
     url: 'http://127.0.0.1:3000/todos/' + String(props$.id) + '.json', // GET method by default
     category: 'todo',
   });
 
-  const todo$ = sources.HTTP.select('todo')
+  const eventClickPost$ = DOM.select('#post').events('click');
+  const eventInputPostDue$ = DOM.select('#post-due').events('input');
+  const eventInputPostTask$ = DOM.select('#post-task').events('input');
+  const eventInputPostStatus$ = DOM.select('#post-status').events('input');
+  const create_todo_action$ = xs.from(eventClickPost$).compose(sampleCombine(
+    eventInputPostDue$.map((e) => (e.ownerTarget).value),
+    eventInputPostTask$.map((e) => (e.ownerTarget).value),
+    eventInputPostStatus$.map((e) => (e.ownerTarget).value),
+    getAuthUserInfo(props.tokens$))).
+    map(x => ({
+      url: 'http://127.0.0.1:3000/todos.json',
+      category: 'api',
+      method: 'POST',
+      send: {
+        type: 'application/json',
+        todo: {
+          due: x[1],
+          task: x[2],
+          status: x[3],
+          user_id: x[4].sub,
+          parent_id: props$.id,
+        }
+      }
+    })
+  );
+
+  // レスポンス Observable を取得する
+  const response$ = HTTP.select('api').flatten().startWith({response: {}});
+  const todo$ = HTTP.select('todo')
     .flatten()
     .map(res => res.body)
     .startWith(null);
+
+  let family_todos_action$ = todo$
+    .map(todo => {
+      if (todo){
+        console.log(todo)
+      }
+      return todo === null ? {} :{
+      url: TODO_LIST_URL,
+      category: 'family_todos',
+      method: 'GET',
+      query: {
+        parent_id: todo.parent_id || props$.id,
+      }}
+    })
+
+  const family_todos$ = HTTP.select('family_todos')
+    .flatten()
+    .map(res => res.body)
+    .startWith([]);
+
+  const family_vdom$ = family_todos$.map(todos =>
+    h('div', [
+      h('div', [
+        h('span', '状態: '),
+        h('button.filter_all', 'すべて'),
+        h('button.filter_complete', '完了'),
+        h('button.filter_uncomplete', '未対応')
+      ]),
+      h('table', {}, [
+        h('thead', {}, h('tr', {}, [
+          h('td', "ID"),
+          h('td', ["Due", h('button.sort_due', 'sort')]),
+          h('td', "Task"),
+          h('td', "Status"),
+          h('td', "PID")
+        ])),
+        h('tbody',{}, todos.map(renderTodo))
+        ])
+      ]
+    )
+  );
 
   const vdom$ = todo$.map(todo =>
     div('.todos', [
@@ -233,14 +307,26 @@ function Todo({props$, sources}) {
         h('div', 'Due: '  + todo.due),
         h('div', 'Task: ' + todo.task),
         h('div', 'Status: ' + todo.status),
+      ]),
+      h('div', [
+        h('div', '親子課題'),
+        h('div.form-group', [h('div', '期限日'), h('input#post-due.form-control')]),
+        h('div.form-group', [h('div', 'タスク内容'),h('input#post-task.form-control')]),
+        h('div.form-group', [h('div', '状態'),h('input#post-status.form-control')]),
+        h('button#post.btn.btn-outline-primary.btn-block', ['POST']),
+      ]),
+      h('div', [
         h('a', {attrs: {href: '/'}}, 'Back')
-      ])
+      ]),
     ])
   );
+  const vtree$ = xs
+    .combine(vdom$, family_vdom$)
+    .map((x, y) => h('div', {}, [h('div', x),h('div', y)]));
 
   return {
-    DOM: vdom$,
-    HTTP: request$
+    DOM: vtree$,
+    HTTP: xs.merge(todo_action$, create_todo_action$, family_todos_action$)
   };
 }
 
