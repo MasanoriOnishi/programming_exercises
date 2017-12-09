@@ -295,29 +295,7 @@ function Todo({props$, sources}) {
     .map(res => res.body)
     .startWith([]);
 
-  const family_vdom$ = family_todos$.map(todos =>
-    h('div', [
-      h('div', [
-        h('span', '状態: '),
-        h('button.filter_all', 'すべて'),
-        h('button.filter_complete', '完了'),
-        h('button.filter_uncomplete', '未対応')
-      ]),
-      h('table', {}, [
-        h('thead', {}, h('tr', {}, [
-          h('td', "ID"),
-          h('td', ["Due", h('button.sort_due', 'sort')]),
-          h('td', "Task"),
-          h('td', "Status"),
-          h('td', "PID")
-        ])),
-        h('tbody',{}, todos.map(renderTodo))
-        ])
-      ]
-    )
-  );
-
-  const vdom$ = todo$.map(todo =>
+  const vdom$ = xs.combine(todo$, family_todos$).map(([todo, todos]) =>
     div('.todos', [
       todo === null ? null : h('form', [
         h('div.form-group', [h('div', '期限日'), h('input#update-due.form-control',{ props: { value: todo.due, type:"text", name:"due"}})]),
@@ -332,17 +310,24 @@ function Todo({props$, sources}) {
         h('div.form-group', [h('div', '状態'),h('input#post-status.form-control', { props: {type:"text", name:"status"}})]),
         h('button#post.btn.btn-outline-primary.btn-block', ['POST']),
       ]),
+      h('table', {}, [
+        h('thead', {}, h('tr', {}, [
+          h('td', "ID"),
+          h('td', ["Due", h('button.sort_due', 'sort')]),
+          h('td', "Task"),
+          h('td', "Status"),
+          h('td', "PID")
+        ])),
+        h('tbody',{}, todos.map(renderTodo))
+      ]),
       h('div', [
         h('a', {attrs: {href: '/'}}, 'Back')
       ]),
     ])
   );
-  const vtree$ = xs
-    .combine(vdom$, family_vdom$)
-    .map((x, y) => h('div', {}, [h('div', x),h('div', y)]));
 
   return {
-    DOM: vtree$,
+    DOM: vdom$,
     HTTP: xs.merge(
       todo_action$,
       create_sub_todo_action$,
