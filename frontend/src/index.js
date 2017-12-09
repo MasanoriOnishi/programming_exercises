@@ -332,18 +332,42 @@ function Todo({props$, sources}) {
     return state$.map(([todo, todos]) =>
       h('div.todos', [
         todo === null ? null : h('form', [
-          h('div.form-group', [h('div', '期限日'), h('input#update-due.form-control',{ props: { value: todo.due, type:"text", name:"due"}})]),
-          h('div.form-group', [h('div', 'タスク内容'),h('input#update-task.form-control',{ props: { value: todo.task, type:"text", name:"task"}})]),
-          h('div.form-group', [h('div', '状態'),h('input#update-status.form-control',{ props: { value: todo.status,  type:"text", name:"status"}})]),
+          h('div.form-group', [
+            h('div', '期限日'),
+            h('input#update-due.form-control',{ props: { value: todo.due, type:"text", name:"due"}})
+          ]),
+          h('div.form-group', [
+            h('div', 'タスク内容'),
+            h('input#update-task.form-control',{ props: { value: todo.task, type:"text", name:"task"}})
+          ]),
+          h('div.form-group', [
+            h('div', '状態'),
+            h('select#post-status.form-control', { props: {name:"status"}}, [
+              h('option', todo.status === '未対応' ? {props: {selected:"selected"}} : {}, '未対応'),
+              h('option', todo.status === '完了' ? {props: {selected:"selected"}} : {}, '完了')
+            ])
+          ]),
           h('button#update.btn.btn-outline-primary.btn-block', ['POST']),
         ]),
         h('div', '親子課題'),
         h('div', [
           todo && todo.parent_id != null ? null :
           h('form', [
-            h('div.form-group', [h('div', '期限日'), h('input#post-due.form-control', { props: {type:"text", name:"due"}})]),
-            h('div.form-group', [h('div', 'タスク内容'),h('input#post-task.form-control', { props: {type:"text", name:"task"}})]),
-            h('div.form-group', [h('div', '状態'),h('input#post-status.form-control', { props: {type:"text", name:"status"}})]),
+            h('div.form-group', [
+              h('div', '期限日'),
+              h('input#post-due.form-control', { props: {type:"text", name:"due"}})
+            ]),
+            h('div.form-group', [
+              h('div', 'タスク内容'),
+              h('input#post-task.form-control', { props: {type:"text", name:"task"}})
+            ]),
+            h('div.form-group', [
+              h('div', '状態'),
+              h('select#post-status.form-control', { props: {name:"status"}}, [
+                h('option', '未対応'),
+                h('option', '完了')
+              ])
+            ]),
             h('button#post.btn.btn-outline-primary.btn-block', ['POST']),
           ])
         ]),
