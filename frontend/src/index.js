@@ -8,7 +8,7 @@ import {routerify} from 'cyclic-router';
 import sampleCombine from 'xstream/extra/sampleCombine'
 import {makeAuth0Driver, protect} from "cyclejs-auth0";
 import jwt from "jwt-decode";
-// import serialize from "form-serialize";
+import serialize from "form-serialize";
 
 function Home(sources) {
   const vtree$ = xs.of(h('h1', {}, 'Hello I am Home'));
@@ -229,90 +229,34 @@ function Todo({props$, sources}) {
     category: 'todo',
   });
 
-  // let serializeForm = function(evt) {
-  //   return serialize(evt.target.form, {hash: true});
-  // };
-  // let saveTodoEvent$ = DOM.select("#post").events("click");
-  // let saveTodo$ = saveTodoEvent$.map(serializeForm);
-  //
-  // let validation$ = saveTodo$.map(function(todo) {
-  //   return {todo: todo};
-  // });
+  let serializeForm = function(evt) {
+    return serialize(evt.target.form, {hash: true});
+  };
+  let saveTodoEvent$ = DOM.select("#post").events("click");
+  let saveTodo$ = saveTodoEvent$.map(serializeForm);
 
-  // const create_todo_action$ = validation$.compose(sampleCombine(
-  //   getAuthUserInfo(props.tokens$).map(x => x.sub))).
-  //   map(function(model) {
-  //     let todo = model[0].todo;
-  //     console.log(todo)
-  //     todo.user_id = model[1];
-  //     todo.parent_id = props$.id;
-  //     return {
-  //       category: 'api',
-  //       method: 'POST',
-  //       url: 'http://127.0.0.1:3000/todos.json',
-  //       send: {
-  //         type: 'application/json',
-  //         todo: todo
-  //       },
-  //       headers: {redirect: true, redirectUrl: '/todos/' + props$.id}
-  //     };
-  //   });
+  let validation$ = saveTodo$.map(function(todo) {
+    return {todo: todo};
+  });
 
-  const eventClickPost$ = DOM.select('#post').events('click');
-  const eventInputPostDue$ = DOM.select('#post-due').events('input');
-  const eventInputPostTask$ = DOM.select('#post-task').events('input');
-  const eventInputPostStatus$ = DOM.select('#post-status').events('input');
-  const create_todo_action$ = xs.from(eventClickPost$).compose(sampleCombine(
-    eventInputPostDue$.map((e) => (e.ownerTarget).value),
-    eventInputPostTask$.map((e) => (e.ownerTarget).value),
-    eventInputPostStatus$.map((e) => (e.ownerTarget).value),
-    getAuthUserInfo(props.tokens$))).
-    map(x => ({
-      url: 'http://127.0.0.1:3000/todos.json',
-      category: 'api',
-      method: 'POST',
-      send: {
-        type: 'application/json',
-        todo: {
-          due: x[1],
-          task: x[2],
-          status: x[3],
-          user_id: x[4].sub,
-          parent_id: props$.id,
-        }
-      },
-      headers: {redirect: true, redirectUrl: '/todos/' + props$.id}
-    })
-  );
-
-
-
-  // const eventClickPost$ = DOM.select('#post').events('click');
-  // const eventInputPostDue$ = DOM.select('#post-due').events('input');
-  // const eventInputPostTask$ = DOM.select('#post-task').events('input');
-  // const eventInputPostStatus$ = DOM.select('#post-status').events('input');
-  // const create_todo_action$ = xs.from(eventClickPost$).compose(sampleCombine(
-  //   eventInputPostDue$.map((e) => (e.ownerTarget).value),
-  //   eventInputPostTask$.map((e) => (e.ownerTarget).value),
-  //   eventInputPostStatus$.map((e) => (e.ownerTarget).value),
-  //   getAuthUserInfo(props.tokens$))).
-  //   map(x => ({
-  //     url: 'http://127.0.0.1:3000/todos.json',
-  //     category: 'api',
-  //     method: 'POST',
-  //     send: {
-  //       type: 'application/json',
-  //       todo: {
-  //         due: x[1],
-  //         task: x[2],
-  //         status: x[3],
-  //         user_id: x[4].sub,
-  //         parent_id: props$.id,
-  //       }
-  //     },
-  //     headers: {redirect: true, redirectUrl: '/todos/' + props$.id}
-  //   })
-  // );
+  const create_todo_action$ = validation$.compose(sampleCombine(
+    getAuthUserInfo(props.tokens$).map(x => x ? x.sub: null))).
+    map(function(model) {
+      let todo = model[0].todo;
+      console.log(todo)
+      todo.user_id = model[1];
+      todo.parent_id = props$.id;
+      return {
+        category: 'api',
+        method: 'POST',
+        url: 'http://127.0.0.1:3000/todos.json',
+        send: {
+          type: 'application/json',
+          todo: todo
+        },
+        headers: {redirect: true, redirectUrl: '/todos/' + props$.id}
+      };
+    });
 
   // レスポンス Observable を取得する
   const response$ = HTTP.select('api').flatten().startWith({response: {}});
@@ -387,7 +331,8 @@ function Todo({props$, sources}) {
 
   return {
     DOM: vtree$,
-    HTTP: xs.merge(todo_action$, create_todo_action$, family_todos_action$)
+    HTTP: xs.merge(todo_action$, create_todo_action$, family_todos_action$),
+    preventDefault: saveTodoEvent$
   };
 }
 
@@ -425,7 +370,7 @@ function main(sources) {
   const sinks = {
     DOM: vtree$,
     router: xs.merge(history$, serverRedirects$),
-    preventDefault: clickHref$,
+    preventDefault: xs.merge(page$.map(x => x.preventDefault).filter(x => !!x).flatten(), clickHref$),
     HTTP: requests$,
     auth0: xs.merge(page$.map(x => x.auth0).filter(x => !!x).flatten(), logout$)
   };
