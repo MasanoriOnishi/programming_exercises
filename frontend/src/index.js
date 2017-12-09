@@ -316,19 +316,22 @@ function Todo({props$, sources}) {
 
   function view(state$) {
     return state$.map(([todo, todos]) =>
-      div('.todos', [
+      h('div.todos', [
         todo === null ? null : h('form', [
           h('div.form-group', [h('div', '期限日'), h('input#update-due.form-control',{ props: { value: todo.due, type:"text", name:"due"}})]),
           h('div.form-group', [h('div', 'タスク内容'),h('input#update-task.form-control',{ props: { value: todo.task, type:"text", name:"task"}})]),
           h('div.form-group', [h('div', '状態'),h('input#update-status.form-control',{ props: { value: todo.status,  type:"text", name:"status"}})]),
           h('button#update.btn.btn-outline-primary.btn-block', ['POST']),
         ]),
-        h('form', [
-          h('div', '親子課題'),
-          h('div.form-group', [h('div', '期限日'), h('input#post-due.form-control', { props: {type:"text", name:"due"}})]),
-          h('div.form-group', [h('div', 'タスク内容'),h('input#post-task.form-control', { props: {type:"text", name:"task"}})]),
-          h('div.form-group', [h('div', '状態'),h('input#post-status.form-control', { props: {type:"text", name:"status"}})]),
-          h('button#post.btn.btn-outline-primary.btn-block', ['POST']),
+        h('div', '親子課題'),
+        h('div', [
+          todo && todo.parent_id != null ? null :
+          h('form', [
+            h('div.form-group', [h('div', '期限日'), h('input#post-due.form-control', { props: {type:"text", name:"due"}})]),
+            h('div.form-group', [h('div', 'タスク内容'),h('input#post-task.form-control', { props: {type:"text", name:"task"}})]),
+            h('div.form-group', [h('div', '状態'),h('input#post-status.form-control', { props: {type:"text", name:"status"}})]),
+            h('button#post.btn.btn-outline-primary.btn-block', ['POST']),
+          ])
         ]),
         h('table', {}, [
           h('thead', {}, h('tr', {}, [
