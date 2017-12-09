@@ -224,117 +224,137 @@ function TodoList({DOM, HTTP, props}) {
 
 function Todo({props$, sources}) {
   const {HTTP, DOM, props} = sources
-  let todo_action$ = xs.of({
-    url: 'http://127.0.0.1:3000/todos/' + String(props$.id) + '.json', // GET method by default
-    category: 'todo',
-  });
-
   let serializeForm = function(evt) {
     return serialize(evt.target.form, {hash: true});
   };
-  let createSubTodoEvent$ = DOM.select("#post").events("click");
-  let createSubTodo$ = createSubTodoEvent$.map(serializeForm);
-  const create_sub_todo_action$ = createSubTodo$.compose(sampleCombine(
-    getAuthUserInfo(props.tokens$).map(x => x ? x.sub: null))).
-    map(function(model) {
-      let todo = model[0];
-      todo.user_id = model[1];
-      todo.parent_id = props$.id;
-      return {
-        category: 'api',
-        method: 'POST',
-        url: 'http://127.0.0.1:3000/todos.json',
-        send: {
-          type: 'application/json',
-          todo: todo
-        },
-        headers: {redirect: true, redirectUrl: '/todos/' + props$.id}
-      };
+
+  function intent(domSource) {
+    let createSubTodoEvent$ = domSource.select("#post").events("click");
+    let updateTodoEvent$ = domSource.select("#update").events("click");
+    let preventDefault$ = xs.merge(updateTodoEvent$, createSubTodoEvent$);
+    return {
+      createSubTodoEvent$: createSubTodoEvent$,
+      updateTodoEvent$: updateTodoEvent$,
+      preventDefault: preventDefault$
+    };
+  }
+
+  function model(actions) {
+    let todo_action$ = xs.of({
+      url: 'http://127.0.0.1:3000/todos/' + String(props$.id) + '.json', // GET method by default
+      category: 'todo',
     });
 
-  let updateTodoEvent$ = DOM.select("#update").events("click");
-  let updateTodo$ = updateTodoEvent$.map(serializeForm);
-  const update_todo_action$ = updateTodo$.compose(sampleCombine(
-    getAuthUserInfo(props.tokens$).map(x => x ? x.sub: null))).
-    map(function(model) {
-      let todo = model[0];
-      todo.user_id = model[1];
-      return {
-        category: 'update',
-        method: 'PUT',
-        url: 'http://127.0.0.1:3000/todos/' + String(props$.id) + '.json',
-        send: {
-          type: 'application/json',
-          todo: todo
-        },
-        headers: {redirect: true, redirectUrl: '/todos/' + props$.id}
-      };
-    });
+    const todo$ = HTTP.select('todo')
+      .flatten()
+      .map(res => res.body)
+      .startWith(null);
 
-  // レスポンス Observable を取得する
-  const response$ = HTTP.select('api').flatten().startWith({response: {}});
-  const response1$ = HTTP.select('update').flatten().startWith({response: {}});
-  const todo$ = HTTP.select('todo')
-    .flatten()
-    .map(res => res.body)
-    .startWith(null);
+    let family_todos_action$ = todo$
+      .map(todo => {
+        return todo === null ? {} :{
+        url: TODO_LIST_URL,
+        category: 'family_todos',
+        method: 'GET',
+        query: {
+          parent_id: todo.parent_id || props$.id,
+        }}
+      })
 
-  let family_todos_action$ = todo$
-    .map(todo => {
-      return todo === null ? {} :{
-      url: TODO_LIST_URL,
-      category: 'family_todos',
-      method: 'GET',
-      query: {
-        parent_id: todo.parent_id || props$.id,
-      }}
-    })
+    const family_todos$ = HTTP.select('family_todos')
+      .flatten()
+      .map(res => res.body)
+      .startWith([]);
 
-  const family_todos$ = HTTP.select('family_todos')
-    .flatten()
-    .map(res => res.body)
-    .startWith([]);
+    let createSubTodo$ = actions.createSubTodoEvent$.map(serializeForm);
+    const create_sub_todo_action$ = createSubTodo$.compose(sampleCombine(
+      getAuthUserInfo(props.tokens$).map(x => x ? x.sub: null))).
+      map(function(model) {
+        let todo = model[0];
+        todo.user_id = model[1];
+        todo.parent_id = props$.id;
+        return {
+          category: 'api',
+          method: 'POST',
+          url: 'http://127.0.0.1:3000/todos.json',
+          send: {
+            type: 'application/json',
+            todo: todo
+          },
+          headers: {redirect: true, redirectUrl: '/todos/' + props$.id}
+        };
+      });
 
-  const vdom$ = xs.combine(todo$, family_todos$).map(([todo, todos]) =>
-    div('.todos', [
-      todo === null ? null : h('form', [
-        h('div.form-group', [h('div', '期限日'), h('input#update-due.form-control',{ props: { value: todo.due, type:"text", name:"due"}})]),
-        h('div.form-group', [h('div', 'タスク内容'),h('input#update-task.form-control',{ props: { value: todo.task, type:"text", name:"task"}})]),
-        h('div.form-group', [h('div', '状態'),h('input#update-status.form-control',{ props: { value: todo.status,  type:"text", name:"status"}})]),
-        h('button#update.btn.btn-outline-primary.btn-block', ['POST']),
-      ]),
-      h('form', [
-        h('div', '親子課題'),
-        h('div.form-group', [h('div', '期限日'), h('input#post-due.form-control', { props: {type:"text", name:"due"}})]),
-        h('div.form-group', [h('div', 'タスク内容'),h('input#post-task.form-control', { props: {type:"text", name:"task"}})]),
-        h('div.form-group', [h('div', '状態'),h('input#post-status.form-control', { props: {type:"text", name:"status"}})]),
-        h('button#post.btn.btn-outline-primary.btn-block', ['POST']),
-      ]),
-      h('table', {}, [
-        h('thead', {}, h('tr', {}, [
-          h('td', "ID"),
-          h('td', ["Due", h('button.sort_due', 'sort')]),
-          h('td', "Task"),
-          h('td', "Status"),
-          h('td', "PID")
-        ])),
-        h('tbody',{}, todos.map(renderTodo))
-      ]),
-      h('div', [
-        h('a', {attrs: {href: '/'}}, 'Back')
-      ]),
-    ])
-  );
+    let updateTodo$ = actions.updateTodoEvent$.map(serializeForm);
+    const update_todo_action$ = updateTodo$.compose(sampleCombine(
+      getAuthUserInfo(props.tokens$).map(x => x ? x.sub: null))).
+      map(function(model) {
+        let todo = model[0];
+        todo.user_id = model[1];
+        return {
+          category: 'update',
+          method: 'PUT',
+          url: 'http://127.0.0.1:3000/todos/' + String(props$.id) + '.json',
+          send: {
+            type: 'application/json',
+            todo: todo
+          },
+          headers: {redirect: true, redirectUrl: '/todos/' + props$.id}
+        };
+      });
+
+    return {
+      state: xs.combine(todo$, family_todos$),
+      HTTP: xs.merge(
+        todo_action$,
+        create_sub_todo_action$,
+        family_todos_action$,
+        update_todo_action$
+      ),
+    };
+  }
+
+  function view(state$) {
+    return state$.map(([todo, todos]) =>
+      div('.todos', [
+        todo === null ? null : h('form', [
+          h('div.form-group', [h('div', '期限日'), h('input#update-due.form-control',{ props: { value: todo.due, type:"text", name:"due"}})]),
+          h('div.form-group', [h('div', 'タスク内容'),h('input#update-task.form-control',{ props: { value: todo.task, type:"text", name:"task"}})]),
+          h('div.form-group', [h('div', '状態'),h('input#update-status.form-control',{ props: { value: todo.status,  type:"text", name:"status"}})]),
+          h('button#update.btn.btn-outline-primary.btn-block', ['POST']),
+        ]),
+        h('form', [
+          h('div', '親子課題'),
+          h('div.form-group', [h('div', '期限日'), h('input#post-due.form-control', { props: {type:"text", name:"due"}})]),
+          h('div.form-group', [h('div', 'タスク内容'),h('input#post-task.form-control', { props: {type:"text", name:"task"}})]),
+          h('div.form-group', [h('div', '状態'),h('input#post-status.form-control', { props: {type:"text", name:"status"}})]),
+          h('button#post.btn.btn-outline-primary.btn-block', ['POST']),
+        ]),
+        h('table', {}, [
+          h('thead', {}, h('tr', {}, [
+            h('td', "ID"),
+            h('td', ["Due", h('button.sort_due', 'sort')]),
+            h('td', "Task"),
+            h('td', "Status"),
+            h('td', "PID")
+          ])),
+          h('tbody',{}, todos.map(renderTodo))
+        ]),
+        h('div', [
+          h('a', {attrs: {href: '/'}}, 'Back')
+        ]),
+      ])
+    );
+  };
+
+  const intent$ = intent(DOM);
+  const model$ = model(intent$);
+  const vdom$ = view(model$.state);
 
   return {
     DOM: vdom$,
-    HTTP: xs.merge(
-      todo_action$,
-      create_sub_todo_action$,
-      family_todos_action$,
-      update_todo_action$
-    ),
-    preventDefault: xs.merge(updateTodoEvent$, createSubTodoEvent$)
+    HTTP: model$.HTTP,
+    preventDefault: intent$.preventDefault
   };
 }
 
