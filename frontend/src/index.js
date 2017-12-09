@@ -243,7 +243,6 @@ function Todo({props$, sources}) {
     getAuthUserInfo(props.tokens$).map(x => x ? x.sub: null))).
     map(function(model) {
       let todo = model[0].todo;
-      console.log(todo)
       todo.user_id = model[1];
       todo.parent_id = props$.id;
       return {
@@ -258,8 +257,31 @@ function Todo({props$, sources}) {
       };
     });
 
+  let updateTodoEvent$ = DOM.select("#update").events("click");
+  let updateTodo$ = updateTodoEvent$.map(serializeForm);
+  let updateValidation$ = updateTodo$.map(function(todo) {
+    return {todo: todo};
+  });
+  const update_todo_action$ = updateValidation$.compose(sampleCombine(
+    getAuthUserInfo(props.tokens$).map(x => x ? x.sub: null))).
+    map(function(model) {
+      let todo = model[0].todo;
+      todo.user_id = model[1];
+      return {
+        category: 'update',
+        method: 'PUT',
+        url: 'http://127.0.0.1:3000/todos/' + String(props$.id) + '.json',
+        send: {
+          type: 'application/json',
+          todo: todo
+        },
+        headers: {redirect: true, redirectUrl: '/todos/' + props$.id}
+      };
+    });
+
   // レスポンス Observable を取得する
   const response$ = HTTP.select('api').flatten().startWith({response: {}});
+  const response1$ = HTTP.select('update').flatten().startWith({response: {}});
   const todo$ = HTTP.select('todo')
     .flatten()
     .map(res => res.body)
@@ -267,9 +289,6 @@ function Todo({props$, sources}) {
 
   let family_todos_action$ = todo$
     .map(todo => {
-      if (todo){
-        console.log(todo)
-      }
       return todo === null ? {} :{
       url: TODO_LIST_URL,
       category: 'family_todos',
@@ -308,10 +327,11 @@ function Todo({props$, sources}) {
 
   const vdom$ = todo$.map(todo =>
     div('.todos', [
-      todo === null ? null : h('div.todo-details', [
-        h('div', 'Due: '  + todo.due),
-        h('div', 'Task: ' + todo.task),
-        h('div', 'Status: ' + todo.status),
+      todo === null ? null : h('form', [
+        h('div.form-group', [h('div', '期限日'), h('input#update-due.form-control',{ props: { value: todo.due, type:"text", name:"due"}})]),
+        h('div.form-group', [h('div', 'タスク内容'),h('input#update-task.form-control',{ props: { value: todo.task, type:"text", name:"task"}})]),
+        h('div.form-group', [h('div', '状態'),h('input#update-status.form-control',{ props: { value: todo.status,  type:"text", name:"status"}})]),
+        h('button#update.btn.btn-outline-primary.btn-block', ['POST']),
       ]),
       h('form', [
         h('div', '親子課題'),
@@ -331,8 +351,8 @@ function Todo({props$, sources}) {
 
   return {
     DOM: vtree$,
-    HTTP: xs.merge(todo_action$, create_todo_action$, family_todos_action$),
-    preventDefault: saveTodoEvent$
+    HTTP: xs.merge(todo_action$, create_todo_action$, family_todos_action$, update_todo_action$),
+    preventDefault: xs.merge(updateTodoEvent$, saveTodoEvent$)
   };
 }
 
@@ -353,13 +373,21 @@ function main(sources) {
 
   const clickHref$ = sources.DOM.select('a').events('click');
   const history$ = clickHref$.map(ev => ev.target.pathname);
-  const serverRedirects$ = sources.HTTP
+  const postRedirects$ = sources.HTTP
     .select()
     .filter(res$ => res$.request.method === 'POST')
     .flatten() //Needed because HTTP gives an Observable when you map it
     .debug(resp => {console.log('POST response', resp)})
     .filter(resp => resp.status === 201 && resp.req.header && resp.req.header.redirectUrl)
     .map(resp => resp.req.header.redirectUrl)
+  const putRedirects$ = sources.HTTP
+    .select()
+    .filter(res$ => res$.request.method === 'PUT')
+    .flatten() //Needed because HTTP gives an Observable when you map it
+    .debug(resp => {console.log('PUT response', resp)})
+    .filter(resp => resp.status === 200 && resp.req.header && resp.req.header.redirectUrl)
+    .map(resp => resp.req.header.redirectUrl)
+
   const vtree$ = page$.map(c => c.DOM).flatten().map(childVnode => h('div#app', {}, [navbar(), childVnode]));
   const requests$ = page$.map(x => x.HTTP).filter(x => !!x).flatten();
   const logout$ = sources.DOM
@@ -369,7 +397,7 @@ function main(sources) {
 
   const sinks = {
     DOM: vtree$,
-    router: xs.merge(history$, serverRedirects$),
+    router: xs.merge(history$, postRedirects$, putRedirects$),
     preventDefault: xs.merge(page$.map(x => x.preventDefault).filter(x => !!x).flatten(), clickHref$),
     HTTP: requests$,
     auth0: xs.merge(page$.map(x => x.auth0).filter(x => !!x).flatten(), logout$)
