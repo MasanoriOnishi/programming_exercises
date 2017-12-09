@@ -86,13 +86,13 @@ let renderTodo = todo => {
     return;
   }
   return tr([
-  td(todo.id),
-  td(todo.due),
-  td(todo.task),
-  td(todo.status),
-  td(todo.parent_id || {}),
-  td(a({ props: { href: '/todos/' + todo.id }}, 'Show')),
-  td(button(".deleteTodo", { attrs: { "data-todo-id": todo.id }}, 'Delete'))
+    td(todo.id),
+    td(todo.due),
+    td(todo.task),
+    td(todo.status),
+    td(todo.parent_id || {}),
+    td(a({ props: { href: '/todos/' + todo.id }}, 'Show')),
+    td(button(".deleteTodo", { attrs: { "data-todo-id": todo.id }}, 'Delete'))
   ])
 }
 
