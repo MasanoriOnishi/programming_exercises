@@ -81,21 +81,6 @@ let getAuthUserInfo = function(tokens) {
     });
 };
 
-let renderTodo = todo => {
-  if (!todo) {
-    return;
-  }
-  return tr([
-    td(todo.id),
-    td(todo.due),
-    td(todo.task),
-    td(todo.status),
-    td(todo.parent_id || {}),
-    td(a({ props: { href: '/todos/' + todo.id }}, 'Show')),
-    td(button(".deleteTodo", { attrs: { "data-todo-id": todo.id }}, 'Delete'))
-  ])
-}
-
 const TODO_LIST_URL = "http://127.0.0.1:3000/todos";
 
 function TodoList({DOM, HTTP, props}) {
@@ -179,6 +164,21 @@ function TodoList({DOM, HTTP, props}) {
       )
       .fold((data, reducer) => reducer(data), todos))
       .flatten()
+  }
+
+  let renderTodo = todo => {
+    if (!todo) {
+      return;
+    }
+    return tr([
+      td(todo.id),
+      td(todo.due),
+      td(todo.task),
+      td(todo.status),
+      td(todo.parent_id || {}),
+      td(a({ props: { href: '/todos/' + todo.id }}, 'Show')),
+      td(button(".deleteTodo", { attrs: { "data-todo-id": todo.id }}, 'Delete'))
+    ])
   }
 
   function view(state$) {
@@ -314,6 +314,20 @@ function Todo({props$, sources}) {
     };
   }
 
+  let renderSubTodo = todo => {
+    if (!todo) {
+      return;
+    }
+    return tr(todo.id == props$.id ? { props: { style: 'color:red' }} : {}, [
+      td(todo.id),
+      td(todo.due),
+      td(todo.task),
+      td(todo.status),
+      td(todo.parent_id || {}),
+      td(a({ props: { href: '/todos/' + todo.id }}, 'Show')),
+    ])
+  }
+
   function view(state$) {
     return state$.map(([todo, todos]) =>
       h('div.todos', [
@@ -341,7 +355,7 @@ function Todo({props$, sources}) {
             h('td', "Status"),
             h('td', "PID")
           ])),
-          h('tbody',{}, todos.map(renderTodo))
+          h('tbody',{}, todos.map(renderSubTodo))
         ]),
         h('div', [
           h('a', {attrs: {href: '/'}}, 'Back')
