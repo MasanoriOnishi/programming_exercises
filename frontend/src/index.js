@@ -350,7 +350,7 @@ function Todo({props$, sources}) {
         h('table', {}, [
           h('thead', {}, h('tr', {}, [
             h('td', "ID"),
-            h('td', ["Due", h('button.sort_due', 'sort')]),
+            h('td', "Due"),
             h('td', "Task"),
             h('td', "Status"),
             h('td', "PID")
