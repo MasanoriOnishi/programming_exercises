@@ -232,17 +232,12 @@ function Todo({props$, sources}) {
   let serializeForm = function(evt) {
     return serialize(evt.target.form, {hash: true});
   };
-  let saveTodoEvent$ = DOM.select("#post").events("click");
-  let saveTodo$ = saveTodoEvent$.map(serializeForm);
-
-  let validation$ = saveTodo$.map(function(todo) {
-    return {todo: todo};
-  });
-
-  const create_todo_action$ = validation$.compose(sampleCombine(
+  let createSubTodoEvent$ = DOM.select("#post").events("click");
+  let createSubTodo$ = createSubTodoEvent$.map(serializeForm);
+  const create_sub_todo_action$ = createSubTodo$.compose(sampleCombine(
     getAuthUserInfo(props.tokens$).map(x => x ? x.sub: null))).
     map(function(model) {
-      let todo = model[0].todo;
+      let todo = model[0];
       todo.user_id = model[1];
       todo.parent_id = props$.id;
       return {
@@ -259,13 +254,10 @@ function Todo({props$, sources}) {
 
   let updateTodoEvent$ = DOM.select("#update").events("click");
   let updateTodo$ = updateTodoEvent$.map(serializeForm);
-  let updateValidation$ = updateTodo$.map(function(todo) {
-    return {todo: todo};
-  });
-  const update_todo_action$ = updateValidation$.compose(sampleCombine(
+  const update_todo_action$ = updateTodo$.compose(sampleCombine(
     getAuthUserInfo(props.tokens$).map(x => x ? x.sub: null))).
     map(function(model) {
-      let todo = model[0].todo;
+      let todo = model[0];
       todo.user_id = model[1];
       return {
         category: 'update',
@@ -351,8 +343,13 @@ function Todo({props$, sources}) {
 
   return {
     DOM: vtree$,
-    HTTP: xs.merge(todo_action$, create_todo_action$, family_todos_action$, update_todo_action$),
-    preventDefault: xs.merge(updateTodoEvent$, saveTodoEvent$)
+    HTTP: xs.merge(
+      todo_action$,
+      create_sub_todo_action$,
+      family_todos_action$,
+      update_todo_action$
+    ),
+    preventDefault: xs.merge(updateTodoEvent$, createSubTodoEvent$)
   };
 }
 
