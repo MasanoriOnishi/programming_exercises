@@ -41,7 +41,7 @@ class TodosController < ApplicationController
         format.json { render :show, status: :created, location: @todo }
       else
         format.html { render :new }
-        format.json { render json: @todo.errors, status: :unprocessable_entity }
+        format.json { render json: @todo.errors }
       end
     end
   end
@@ -55,7 +55,7 @@ class TodosController < ApplicationController
         format.json { render :show, status: :ok, location: @todo }
       else
         format.html { render :edit }
-        format.json { render json: @todo.errors, status: :unprocessable_entity }
+        format.json { render json: @todo.errors }
       end
     end
   end
