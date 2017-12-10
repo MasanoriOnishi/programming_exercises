@@ -8,7 +8,6 @@ class TodosController < ApplicationController
     parent_id = params.fetch(:parent_id, nil)
     if parent_id
       @todos = Todo.where(id:parent_id).or(Todo.where(parent_id:parent_id))
-      puts parent_id
     else
       @todos = Todo.where(user_id:user_id)
     end
