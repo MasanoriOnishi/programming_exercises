@@ -224,14 +224,14 @@ function TodoList({DOM, HTTP, props}) {
 
 function Todo({props$, sources}) {
   const {HTTP, DOM, props} = sources
-  let serializeForm = function(evt) {
+  const serializeForm = function(evt) {
     return serialize(evt.target.form, {hash: true});
   };
 
   function intent(domSource) {
-    let createSubTodoEvent$ = domSource.select("#post").events("click");
-    let updateTodoEvent$ = domSource.select("#update").events("click");
-    let preventDefault$ = xs.merge(updateTodoEvent$, createSubTodoEvent$);
+    const createSubTodoEvent$ = domSource.select("#post").events("click");
+    const updateTodoEvent$ = domSource.select("#update").events("click");
+    const preventDefault$ = xs.merge(updateTodoEvent$, createSubTodoEvent$);
     return {
       createSubTodoEvent$: createSubTodoEvent$,
       updateTodoEvent$: updateTodoEvent$,
@@ -240,7 +240,7 @@ function Todo({props$, sources}) {
   }
 
   function model(actions) {
-    let todo_action$ = xs.of({
+    const todo_action$ = xs.of({
       url: 'http://127.0.0.1:3000/todos/' + String(props$.id) + '.json', // GET method by default
       category: 'todo',
     });
@@ -250,7 +250,7 @@ function Todo({props$, sources}) {
       .map(res => res.body)
       .startWith(null);
 
-    let family_todos_action$ = todo$
+    const family_todos_action$ = todo$
       .map(todo => {
         return todo === null ? {} :{
         url: TODO_LIST_URL,
@@ -266,7 +266,7 @@ function Todo({props$, sources}) {
       .map(res => res.body)
       .startWith([]);
 
-    let createSubTodo$ = actions.createSubTodoEvent$.map(serializeForm);
+    const createSubTodo$ = actions.createSubTodoEvent$.map(serializeForm);
     const create_sub_todo_action$ = createSubTodo$.compose(sampleCombine(
       getAuthUserInfo(props.tokens$).map(x => x ? x.sub: null))).
       map(function(model) {
@@ -285,7 +285,7 @@ function Todo({props$, sources}) {
         };
       });
 
-    let updateTodo$ = actions.updateTodoEvent$.map(serializeForm);
+    const updateTodo$ = actions.updateTodoEvent$.map(serializeForm);
     const update_todo_action$ = updateTodo$.compose(sampleCombine(
       getAuthUserInfo(props.tokens$).map(x => x ? x.sub: null))).
       map(function(model) {
@@ -314,7 +314,7 @@ function Todo({props$, sources}) {
     };
   }
 
-  let renderSubTodo = todo => {
+  const renderSubTodo = todo => {
     if (!todo) {
       return;
     }
