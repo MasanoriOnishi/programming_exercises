@@ -55,7 +55,7 @@ class TodosController < ApplicationController
         format.json { render :show, status: :ok, location: @todo }
       else
         format.html { render :edit }
-        format.json { render json: @todo.errors }
+        format.json { render :json => { :errors => @todo.errors } }
       end
     end
   end
