@@ -19,6 +19,7 @@ ActiveRecord::Schema.define(version: 20171217022511) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "user_id"
+    t.string "parent_id"
   end
 
   create_table "user_settings", primary_key: "user_id", id: :string, force: :cascade, options: "ENGINE=InnoDB DEFAULT CHARSET=utf8" do |t|
