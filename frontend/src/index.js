@@ -123,6 +123,7 @@ function TodoList({DOM, HTTP, props}) {
     ))
 
   // TODO 後でuser毎にstatusを保持できるようにする
+  let sort_status = "desc"
   let filter_status = "all";
 
   function model(actions) {
@@ -136,18 +137,25 @@ function TodoList({DOM, HTTP, props}) {
       .flatten()
       .map(res => res.body)
 
-    function sortTodos([todosData, user_setting]) {
-      if (user_setting.sort === "desc") {
-        todosData.sort((a, b) => a.due > b.due ? 1 : -1)
-      } else {
-        todosData.sort((a, b) => a.due < b.due ? 1 : -1)
-      }
-      return todosData;
-    };
+    const sortTodos = ([todosData, status]) => {
+        if (status === "desc") {
+          todosData.sort((a, b) => a.due > b.due ? 1 : -1)
+          sort_status = "asc"
+        } else {
+          todosData.sort((a, b) => a.due < b.due ? 1 : -1)
+          sort_status = "desc"
+        }
+        return todosData;
+    }
 
     const sorted_todos$ = xs
       .combine(todos$, user_setting$)
-      .map(x => sortTodos(x))
+      .map(([todosData, user_setting]) =>
+        sortTodos([todosData, user_setting.sort])
+      )
+
+    const sortedList$ = actions.sort_due_action$
+      .mapTo((todosData) => sortTodos([todosData, sort_status]));
 
     const filterdComletedList$ = actions.filter_complete_action$
       .mapTo((todosData) => {
@@ -172,26 +180,24 @@ function TodoList({DOM, HTTP, props}) {
         getAuthUserInfo(props.tokens$).map(x => x ? x.sub: null),
         user_setting$
       ))
-      // .debug(x => console.log(x[2].sort))
-      // .debug(x => console.log(x[2].sort != "asc" ? "asc" : "desc"))
       .map(x => ({
           method: 'PUT',
           url: 'http://127.0.0.1:3000/user_settings/' + String(x[1]) + '.json',
           send: {
             type: 'application/json',
             user_setting: {
-              sort: x[2].sort === "desc" ? "asc" : "desc"
+              sort: sort_status
             }
           },
           category: 'sort_toggle',
-          headers: {redirect: true, redirectUrl: '/'}
         }
       ))
 
     return {
-      state: xs.combine(sorted_todos$, user_setting$)
+      state: sorted_todos$
         .map(
           x => xs.merge(
+            sortedList$,
             filterdComletedList$,
             filterdAllList$,
             filterdUncompletedList$
@@ -234,7 +240,7 @@ function TodoList({DOM, HTTP, props}) {
       }
     }
     return state$
-    .map(([todos, user_setting]) =>
+    .map(todos =>
       h('div', [
         h('div', [
           h('span', '状態: '),
