@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20171216112648) do
+ActiveRecord::Schema.define(version: 20171217022511) do
 
   create_table "todos", force: :cascade, options: "ENGINE=InnoDB DEFAULT CHARSET=utf8" do |t|
     t.date "due"
@@ -22,7 +22,6 @@ ActiveRecord::Schema.define(version: 20171216112648) do
   end
 
   create_table "user_settings", primary_key: "user_id", id: :string, force: :cascade, options: "ENGINE=InnoDB DEFAULT CHARSET=utf8" do |t|
-    t.integer "id", null: false, unsigned: true
     t.string "sort"
     t.string "filter"
     t.datetime "created_at", null: false

@@ -64,7 +64,13 @@ class UserSettingsController < ApplicationController
   private
     # Use callbacks to share common setup or constraints between actions.
     def set_user_setting
-      @user_setting = UserSetting.find(params[:id])
+      @user_setting = UserSetting.find_or_initialize_by(user_id:params[:user_id])
+      if @user_setting.new_record? # 新規作成の場合は保存
+        @user_setting.sort = "desc"
+        @user_setting.filter = "all"
+        @user_setting.save
+        # 新規作成時に行いたい処理を記述
+      end
     end
 
     # Never trust parameters from the scary internet, only allow the white list through.
