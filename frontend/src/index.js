@@ -84,6 +84,9 @@ let getAuthUserInfo = function(tokens) {
 const TODO_LIST_URL = "http://127.0.0.1:3000/todos";
 
 function TodoList({DOM, HTTP, props}) {
+  let sort_status = "desc"
+  let filter_status = "all";
+
   let deleteTodo$ = DOM.select("button.deleteTodo").events("click")
     .map(getTodoId);
 
@@ -122,10 +125,6 @@ function TodoList({DOM, HTTP, props}) {
       }
     ))
 
-  // TODO 後でuser毎にstatusを保持できるようにする
-  let sort_status = "desc"
-  let filter_status = "all";
-
   function model(actions) {
     const todos$ = HTTP
       .select('todos')
@@ -137,25 +136,29 @@ function TodoList({DOM, HTTP, props}) {
       .flatten()
       .map(res => res.body)
 
-    const sortTodos = ([todosData, status]) => {
-        if (status === "desc") {
-          todosData.sort((a, b) => a.due > b.due ? 1 : -1)
-          sort_status = "asc"
-        } else {
-          todosData.sort((a, b) => a.due < b.due ? 1 : -1)
-          sort_status = "desc"
-        }
-        return todosData;
+    const sortTodos = todosData => {
+      if (sort_status === "desc") {
+        todosData.sort((a, b) => a.due > b.due ? 1 : -1)
+        sort_status = "asc"
+      } else {
+        todosData.sort((a, b) => a.due < b.due ? 1 : -1)
+        sort_status = "desc"
+      }
+      return todosData;
     }
 
-    const sorted_todos$ = xs
+    const initializeTodos = ([todosData, user_setting]) => {
+      filter_status = user_setting.filter
+      sort_status = user_setting.sort
+      return sortTodos(todosData)
+    }
+
+    const init_todos$ = xs
       .combine(todos$, user_setting$)
-      .map(([todosData, user_setting]) =>
-        sortTodos([todosData, user_setting.sort])
-      )
+      .map(initializeTodos)
 
     const sortedList$ = actions.sort_due_action$
-      .mapTo((todosData) => sortTodos([todosData, sort_status]));
+      .mapTo(sortTodos);
 
     const filterdComletedList$ = actions.filter_complete_action$
       .mapTo((todosData) => {
@@ -189,12 +192,48 @@ function TodoList({DOM, HTTP, props}) {
               sort: sort_status
             }
           },
-          category: 'sort_toggle',
+          category: 'sort_todos',
         }
       ))
 
+    let filterRequest = ([x, status]) => {
+      filter_status = status
+      return ({
+        method: 'PUT',
+        url: 'http://127.0.0.1:3000/user_settings/' + String(x[1]) + '.json',
+        send: {
+          type: 'application/json',
+          user_setting: {
+            filter: status
+          }
+        },
+        category: 'filter_todos',
+      }
+    )}
+
+    let filter_all_resuest$ = actions.filter_all_action$
+      .compose(sampleCombine(
+        getAuthUserInfo(props.tokens$).map(x => x ? x.sub: null),
+        user_setting$
+      ))
+      .map(x => filterRequest([x, "all"]))
+
+    let filter_complete_resuest$ = actions.filter_complete_action$
+      .compose(sampleCombine(
+        getAuthUserInfo(props.tokens$).map(x => x ? x.sub: null),
+        user_setting$
+      ))
+      .map(x => filterRequest([x, "complete"]))
+
+    let filter_uncomplete_resuest$ = actions.filter_uncomplete_action$
+      .compose(sampleCombine(
+        getAuthUserInfo(props.tokens$).map(x => x ? x.sub: null),
+        user_setting$
+      ))
+      .map(x => filterRequest([x, "uncomplete"]))
+
     return {
-      state: sorted_todos$
+      state: init_todos$
         .map(
           x => xs.merge(
             sortedList$,
@@ -209,6 +248,9 @@ function TodoList({DOM, HTTP, props}) {
         delete_action$,
         user_setting_action$,
         sort_action$,
+        filter_all_resuest$,
+        filter_complete_resuest$,
+        filter_uncomplete_resuest$,
       )
     }
   }
