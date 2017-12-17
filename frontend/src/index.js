@@ -1,7 +1,7 @@
 import xs from 'xstream'
 import {run} from '@cycle/run';
 import {makeHTTPDriver} from '@cycle/http';
-import {div, h1, makeDOMDriver, button, h4, a, tr, table, tbody, thead, td, li, ul, span, th, h} from '@cycle/dom';
+import {div, h1, makeDOMDriver, button, h4, a, tr, table, tbody, thead, td, li, ul, span, th, h, header, p, h2} from '@cycle/dom';
 import { makeHistoryDriver } from '@cycle/history';
 import switchPath from 'switch-path';
 import {routerify} from 'cyclic-router';
@@ -303,8 +303,46 @@ function Todo({props$, sources}) {
         };
       });
 
+    const modal = ModalComponent({
+      props: {
+        // モーダルの前面に表示する DOM 要素
+        content$: xs.of(
+          h('div', [
+            h('header.panel-heading', [
+              h('button#dialog-close.close', [
+                h('span','×')
+              ])
+            ]),
+            h('form', [
+              h('div.form-group', [
+                h('div', '期限日'),
+                h('input#post-due.form-control', { props: {type:"text", name:"due"}})
+              ]),
+              h('div.form-group', [
+                h('div', 'タスク内容'),
+                h('input#post-task.form-control', { props: {type:"text", name:"task"}})
+              ]),
+              h('div.form-group', [
+                h('div', '状態'),
+                h('select#post-status.form-control', { props: {name:"status"}}, [
+                  h('option', '未対応'),
+                  h('option', '完了')
+                ])
+              ]),
+              h('button#post.btn.btn-outline-primary.btn-block', ['POST']),
+            ])
+          ]),
+        ),
+        // モーダルを表示するかどうか
+        visibility$: xs.merge(
+          sources.DOM.select('#dialog-open').events('click').mapTo(true),
+          sources.DOM.select('#dialog-close').events('click').mapTo(false)
+        ).startWith(false)
+      }
+    });
+
     return {
-      state: xs.combine(todo$, family_todos$),
+      state: xs.combine(todo$, family_todos$, modal.DOM),
       HTTP: xs.merge(
         todo_action$,
         create_sub_todo_action$,
@@ -329,7 +367,7 @@ function Todo({props$, sources}) {
   }
 
   function view(state$) {
-    return state$.map(([todo, todos]) =>
+    return state$.map(([todo, todos, modal]) =>
       h('div.todos', [
         todo === null ? null : h('form', [
           h('div.form-group', [
@@ -349,27 +387,11 @@ function Todo({props$, sources}) {
           ]),
           h('button#update.btn.btn-outline-primary.btn-block', ['POST']),
         ]),
-        h('div', '親子課題'),
-        h('div', [
+        h('div',[
+          '親子課題',
           todo && todo.parent_id != null ? null :
-          h('form', [
-            h('div.form-group', [
-              h('div', '期限日'),
-              h('input#post-due.form-control', { props: {type:"text", name:"due"}})
-            ]),
-            h('div.form-group', [
-              h('div', 'タスク内容'),
-              h('input#post-task.form-control', { props: {type:"text", name:"task"}})
-            ]),
-            h('div.form-group', [
-              h('div', '状態'),
-              h('select#post-status.form-control', { props: {name:"status"}}, [
-                h('option', '未対応'),
-                h('option', '完了')
-              ])
-            ]),
-            h('button#post.btn.btn-outline-primary.btn-block', ['POST']),
-          ])
+          h('button#dialog-open.btn.btn-default', '子課題を追加する'),
+          modal,
         ]),
         h('table', {}, [
           h('thead', {}, h('tr', {}, [
@@ -485,3 +507,24 @@ const drivers = {
 };
 
 run(mainWithRouting, drivers)
+
+
+function render([visible, content]) {
+  return div('.modal', {
+    class: {
+      'modal--visible': visible
+    }
+  }, [
+    div('.modal__content', [visible ? content : null])
+  ]);
+}
+
+export function ModalComponent({props}) {
+  const vdom$ = xs
+    .combine(props.visibility$.startWith(false), props.content$)
+    .map((x) => render(x));
+
+  return {
+    DOM: vdom$
+  };
+}
