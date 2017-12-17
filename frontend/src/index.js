@@ -123,7 +123,6 @@ function TodoList({DOM, HTTP, props}) {
     ))
 
   // TODO 後でuser毎にstatusを保持できるようにする
-  let sort_status = "desc"
   let filter_status = "all";
 
   function model(actions) {
@@ -132,18 +131,23 @@ function TodoList({DOM, HTTP, props}) {
       .flatten()
       .map(res => res.body)
 
-    const sortedList$ = actions.sort_due_action$
-      .mapTo(
-        function changeRouteReducer([todosData, user_setting]) {
-          if (sort_status === "desc") {
-            todosData.sort((a, b) => a.due > b.due ? 1 : -1)
-            // sort_status = "asc"
-          } else {
-            todosData.sort((a, b) => a.due < b.due ? 1 : -1)
-            // sort_status = "desc"
-          }
-          return [todosData, user_setting];
-      });
+    const user_setting$ = HTTP
+      .select('user_setting')
+      .flatten()
+      .map(res => res.body)
+
+    function sortTodos([todosData, user_setting]) {
+      if (user_setting.sort === "desc") {
+        todosData.sort((a, b) => a.due > b.due ? 1 : -1)
+      } else {
+        todosData.sort((a, b) => a.due < b.due ? 1 : -1)
+      }
+      return todosData;
+    };
+
+    const sorted_todos$ = xs
+      .combine(todos$, user_setting$)
+      .map(x => sortTodos(x))
 
     const filterdComletedList$ = actions.filter_complete_action$
       .mapTo((todosData) => {
@@ -163,24 +167,46 @@ function TodoList({DOM, HTTP, props}) {
         return todosData}
       );
 
-    const user_setting$ = HTTP
-      .select('user_setting')
-      .flatten()
-      .map(res => res.body)
+    let sort_action$ = actions.sort_due_action$
+      .compose(sampleCombine(
+        getAuthUserInfo(props.tokens$).map(x => x ? x.sub: null),
+        user_setting$
+      ))
+      // .debug(x => console.log(x[2].sort))
+      // .debug(x => console.log(x[2].sort != "asc" ? "asc" : "desc"))
+      .map(x => ({
+          method: 'PUT',
+          url: 'http://127.0.0.1:3000/user_settings/' + String(x[1]) + '.json',
+          send: {
+            type: 'application/json',
+            user_setting: {
+              sort: x[2].sort === "desc" ? "asc" : "desc"
+            }
+          },
+          category: 'sort_toggle',
+          headers: {redirect: true, redirectUrl: '/'}
+        }
+      ))
 
-    return xs.combine(todos$, user_setting$)
-      // .debug(([x, y]) => console.log(y))
-      .map(
-        x => xs.merge(
-          sortedList$,
-          filterdComletedList$,
-          filterdAllList$,
-          filterdUncompletedList$
+    return {
+      state: xs.combine(sorted_todos$, user_setting$)
+        .map(
+          x => xs.merge(
+            filterdComletedList$,
+            filterdAllList$,
+            filterdUncompletedList$
+        )
+        .fold((data, reducer) => reducer(data), x))
+        .flatten(),
+      HTTP: xs.merge(
+        todos_action$,
+        delete_action$,
+        user_setting_action$,
+        sort_action$,
       )
-      // .debug(x => console.log(x))
-      .fold((data, reducer) => reducer(data), x))
-      .flatten()
+    }
   }
+
 
   let renderTodo = todo => {
     if (!todo) {
@@ -207,7 +233,8 @@ function TodoList({DOM, HTTP, props}) {
         return todo
       }
     }
-    return state$.map(([todos, user_setting]) =>
+    return state$
+    .map(([todos, user_setting]) =>
       h('div', [
         h('div', [
           h('span', '状態: '),
@@ -230,11 +257,13 @@ function TodoList({DOM, HTTP, props}) {
     );
   }
 
-  const vdom$ = view(model(intent(DOM)));
+  const intent$ = intent(DOM);
+  const model$ = model(intent$);
+  const vdom$ = view(model$.state);
 
   return {
     DOM: vdom$,
-    HTTP: xs.merge(todos_action$, delete_action$, user_setting_action$)
+    HTTP: model$.HTTP,
   };
 }
 
