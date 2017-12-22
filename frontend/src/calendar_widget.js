@@ -2,6 +2,7 @@ import xs from 'xstream'
 import {div, span, input, table, tr, th, td, makeDOMDriver} from '@cycle/dom';
 import {Calendar} from 'calendar';
 import {defaultsDeep, isNumber, isPlainObject, mapValues, toPlainObject} from 'lodash';
+import isolate from '@cycle/isolate';
 
 const calendar = new Calendar();
 const now = new Date();
@@ -86,7 +87,7 @@ function view(model$) {
   );
 }
 
-export function CalendarWidget({DOM, props$}) {
+function CalendarWidget({DOM, props$}) {
   if (!props$) {
     props$ = xs.of({});
   }
@@ -108,4 +109,4 @@ export function CalendarWidget({DOM, props$}) {
   };
 }
 
-// export default (sources) => isolate(CalendarWidget)(sources);
+export default (sources) => isolate(CalendarWidget)(sources);
