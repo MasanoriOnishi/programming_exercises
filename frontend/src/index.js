@@ -9,6 +9,7 @@ import sampleCombine from 'xstream/extra/sampleCombine'
 import {makeAuth0Driver, protect} from "cyclejs-auth0";
 import jwt from "jwt-decode";
 import serialize from "form-serialize";
+import ModalComponent from '../src/modal_component';
 
 function Home(sources) {
   const vtree$ = xs.of(h('h1', {}, 'Hello I am Home'));
@@ -507,24 +508,3 @@ const drivers = {
 };
 
 run(mainWithRouting, drivers)
-
-
-function render([visible, content]) {
-  return div('.modal', {
-    class: {
-      'modal--visible': visible
-    }
-  }, [
-    div('.modal__content', [visible ? content : null])
-  ]);
-}
-
-export function ModalComponent({props}) {
-  const vdom$ = xs
-    .combine(props.visibility$.startWith(false), props.content$)
-    .map((x) => render(x));
-
-  return {
-    DOM: vdom$
-  };
-}
