@@ -9,6 +9,7 @@ import sampleCombine from 'xstream/extra/sampleCombine'
 import {makeAuth0Driver, protect} from "cyclejs-auth0";
 import jwt from "jwt-decode";
 import serialize from "form-serialize";
+import Calendar from '../src/calendar_widget';
 
 function Home(sources) {
   const vtree$ = xs.of(h('h1', {}, 'Hello I am Home'));
@@ -303,8 +304,10 @@ function Todo({props$, sources}) {
         };
       });
 
+    const calendar = Calendar({DOM});
+
     return {
-      state: xs.combine(todo$, family_todos$),
+      state: xs.combine(todo$, family_todos$, calendar.DOM, calendar.value$),
       HTTP: xs.merge(
         todo_action$,
         create_sub_todo_action$,
@@ -329,13 +332,21 @@ function Todo({props$, sources}) {
   }
 
   function view(state$) {
-    return state$.map(([todo, todos]) =>
+    return state$.map(([todo, todos, calendarVTree, calendarValue]) =>
       h('div.todos', [
         todo === null ? null : h('form', [
           h('div.form-group', [
             h('div', '期限日'),
-            h('input#update-due.form-control',{ props: { value: todo.due, type:"text", name:"due"}})
+            h('input#update-due.form-control',
+              { props: {
+                  value: calendarValue != null ? calendarValue : todo.due,
+                  type:"text",
+                  name:"due"
+                }
+              }
+            )
           ]),
+          calendarVTree,
           h('div.form-group', [
             h('div', 'タスク内容'),
             h('input#update-task.form-control',{ props: { value: todo.task, type:"text", name:"task"}})

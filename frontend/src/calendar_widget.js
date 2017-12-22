@@ -55,9 +55,9 @@ function view(model$) {
     props => div('.cal-wg',
       table([
           tr([
-            th(input('.prev', {type: 'button', value: '<'})),
+            th(input('.prev', {props: {type: 'button', value: '<'}})),
             th({colSpan:5}, props.i18n.months[props.month].substring(0, 3)+' '+props.year),
-            th(input('.next', {type: 'button', value: '>'}))
+            th(input('.next', {props: {type: 'button', value: '>'}}))
           ]),
           tr(props.i18n.days.map(x => th(x.substring(0, 2))))
         ]
