@@ -303,8 +303,13 @@ function Todo({props$, sources}) {
         };
       });
 
+    const update_response$ = HTTP.select('update')
+      .flatten()
+      .map(res => JSON.parse(res.text))
+      .startWith({})
+
     return {
-      state: xs.combine(todo$, family_todos$),
+      state: xs.combine(todo$, family_todos$, update_response$),
       HTTP: xs.merge(
         todo_action$,
         create_sub_todo_action$,
@@ -329,12 +334,13 @@ function Todo({props$, sources}) {
   }
 
   function view(state$) {
-    return state$.map(([todo, todos]) =>
+    return state$.map(([todo, todos, update_response]) =>
       h('div.todos', [
         todo === null ? null : h('form', [
           h('div.form-group', [
             h('div', '期限日'),
-            h('input#update-due.form-control',{ props: { value: todo.due, type:"text", name:"due"}})
+            h('input#update-due.form-control',{ props: { value: todo.due, type:"text", name:"due"}}),
+            h('div', { props: { style: 'color:red' }} ,['errors' in update_response ? update_response.errors.due[0] : null]),
           ]),
           h('div.form-group', [
             h('div', 'タスク内容'),
