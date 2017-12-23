@@ -50,10 +50,14 @@ function model(props$, intent$) {
     });
 }
 
-function view(model$) {
-  return model$.map(
-    props => div('.cal-wg',
-      table([
+function view(model$, visibility$) {
+  return xs.combine(model$, visibility$)
+  .debug(([props, visible]) => console.log(props))
+  .debug(([props, visible]) => console.log(visible))
+  .map(([props, visible]) => div('.cal-wg',
+      [
+        input('#cal-open', {props: {type: 'button', value: '□'}}),
+        visible ? table([
           tr([
             th(input('.prev', {props: {type: 'button', value: '<'}})),
             th({colSpan:5}, props.i18n.months[props.month].substring(0, 3)+' '+props.year),
@@ -64,7 +68,7 @@ function view(model$) {
         .concat(calendar.monthDates(props.year, props.month).map(
           w => tr(w.map(
             d => td(
-              '.cal-date'
+              '#cal-close.cal-date'
                 +(d.getMonth() != props.month ? ' .minor' : '')
                 +(d.getDate() == now.getDate() && d.getMonth() == now.getMonth() && d.getFullYear() == now.getFullYear() ? ' .today' : '')
                 +(isPlainObject(props.value) && d.getDate() === props.value.day && d.getMonth() === props.value.month && d.getFullYear() === props.value.year ? ' .selected' : ''),
@@ -82,7 +86,7 @@ function view(model$) {
             )
           ))
         ))
-      )
+      ) : null]
     )
   );
 }
@@ -91,11 +95,15 @@ function CalendarWidget({DOM, props$}) {
   if (!props$) {
     props$ = xs.of({});
   }
+  const visibility$ = xs.merge(
+      DOM.select('#cal-open').events('click').mapTo(true),
+      DOM.select('#cal-close').events('click').mapTo(false)
+    ).startWith(false)
 
   const initProps$ = xs.of(defaultProps)
   const intent$ = intent(DOM);
   const model$ = model(initProps$, intent$);
-  const view$ = view(model$);
+  const view$ = view(model$, visibility$);
 
   const value$ = intent$
     .filter(intent => isPlainObject(intent))

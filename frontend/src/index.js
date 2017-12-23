@@ -304,7 +304,11 @@ function Todo({props$, sources}) {
         };
       });
 
-    const calendar = Calendar({DOM});
+    const visibility$ = xs.merge(
+        DOM.select('#calendar-open').events('click').mapTo(true),
+        DOM.select('#calendar-close').events('click').mapTo(false)
+      ).startWith(false)
+    const calendar = Calendar({DOM, visibility$});
 
     return {
       state: xs.combine(todo$, family_todos$, calendar.DOM, calendar.value$),
@@ -344,9 +348,9 @@ function Todo({props$, sources}) {
                   name:"due"
                 }
               }
-            )
+            ),
+            calendarVTree,
           ]),
-          calendarVTree,
           h('div.form-group', [
             h('div', 'タスク内容'),
             h('input#update-task.form-control',{ props: { value: todo.task, type:"text", name:"task"}})
