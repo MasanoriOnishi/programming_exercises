@@ -493,8 +493,8 @@ function Todo({props$, sources}) {
                 }
               }
             ),
-            h('div', { props: { style: 'color:red' }} ,['errors' in update_response ? update_response.errors.due[0] : null]),
             calendarVTree,
+            h('div', { props: { style: 'color:red' }} ,['errors' in update_response ? update_response.errors.due[0] : null]),
           ]),
           h('div.form-group', [
             h('div', 'タスク内容'),
