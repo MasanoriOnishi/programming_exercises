@@ -8,6 +8,7 @@ import {routerify} from 'cyclic-router';
 import sampleCombine from 'xstream/extra/sampleCombine'
 import {makeAuth0Driver, protect} from "cyclejs-auth0";
 import jwt from "jwt-decode";
+import serialize from "form-serialize";
 
 function Home(sources) {
   const vtree$ = xs.of(h('h1', {}, 'Hello I am Home'));
@@ -43,7 +44,8 @@ function TodoForm({DOM, HTTP, props}) {
           status: x[3],
           user_id: x[4].sub,
         }
-      }
+      },
+      headers: {redirect: true, redirectUrl: '/'}
     })
   );
 
@@ -169,11 +171,13 @@ function TodoList({DOM, HTTP, props}) {
       return;
     }
     return tr([
-    td(todo.due),
-    td(todo.task),
-    td(todo.status),
-    td(a({ props: { href: '/todos/' + todo.id }}, 'Show')),
-    td(button(".deleteTodo", { attrs: { "data-todo-id": todo.id }}, 'Delete'))
+      td(todo.id),
+      td(todo.due),
+      td(todo.task),
+      td(todo.status),
+      td(todo.parent_id || {}),
+      td(a({ props: { href: '/todos/' + todo.id }}, 'Show')),
+      td(button(".deleteTodo", { attrs: { "data-todo-id": todo.id }}, 'Delete'))
     ])
   }
 
@@ -197,9 +201,11 @@ function TodoList({DOM, HTTP, props}) {
         ]),
         h('table', {}, [
           h('thead', {}, h('tr', {}, [
+            h('td', "ID"),
             h('td', ["Due", h('button.sort_due', 'sort')]),
             h('td', "Task"),
-            h('td', "Status")
+            h('td', "Status"),
+            h('td', "PID")
           ])),
           h('tbody',{}, todos.map(filterStatusView).map(renderTodo))
           ])
@@ -217,30 +223,179 @@ function TodoList({DOM, HTTP, props}) {
 }
 
 function Todo({props$, sources}) {
-  let request$ = xs.of({
-    url: 'http://127.0.0.1:3000/todos/' + String(props$.id) + '.json', // GET method by default
-    category: 'todo',
-  });
+  const {HTTP, DOM, props} = sources
+  const serializeForm = function(evt) {
+    return serialize(evt.target.form, {hash: true});
+  };
 
-  const todo$ = sources.HTTP.select('todo')
-    .flatten()
-    .map(res => res.body)
-    .startWith(null);
+  function intent(domSource) {
+    const createSubTodoEvent$ = domSource.select("#post").events("click");
+    const updateTodoEvent$ = domSource.select("#update").events("click");
+    const preventDefault$ = xs.merge(updateTodoEvent$, createSubTodoEvent$);
+    return {
+      createSubTodoEvent$: createSubTodoEvent$,
+      updateTodoEvent$: updateTodoEvent$,
+      preventDefault: preventDefault$
+    };
+  }
 
-  const vdom$ = todo$.map(todo =>
-    div('.todos', [
-      todo === null ? null : h('div.todo-details', [
-        h('div', 'Due: '  + todo.due),
-        h('div', 'Task: ' + todo.task),
-        h('div', 'Status: ' + todo.status),
-        h('a', {attrs: {href: '/'}}, 'Back')
-      ])
+  function model(actions) {
+    const todo_action$ = xs.of({
+      url: 'http://127.0.0.1:3000/todos/' + String(props$.id) + '.json', // GET method by default
+      category: 'todo',
+    });
+
+    const todo$ = HTTP.select('todo')
+      .flatten()
+      .map(res => res.body)
+      .startWith(null);
+
+    const family_todos_action$ = todo$
+      .map(todo => {
+        return todo === null ? {} :{
+        url: TODO_LIST_URL,
+        category: 'family_todos',
+        method: 'GET',
+        query: {
+          parent_id: todo.parent_id || props$.id,
+        }}
+      })
+
+    const family_todos$ = HTTP.select('family_todos')
+      .flatten()
+      .map(res => res.body)
+      .startWith([]);
+
+    const createSubTodo$ = actions.createSubTodoEvent$.map(serializeForm);
+    const create_sub_todo_action$ = createSubTodo$.compose(sampleCombine(
+      getAuthUserInfo(props.tokens$).map(x => x ? x.sub: null))).
+      map(function(model) {
+        let todo = model[0];
+        todo.user_id = model[1];
+        todo.parent_id = props$.id;
+        return {
+          category: 'api',
+          method: 'POST',
+          url: 'http://127.0.0.1:3000/todos.json',
+          send: {
+            type: 'application/json',
+            todo: todo
+          },
+          headers: {redirect: true, redirectUrl: '/todos/' + props$.id}
+        };
+      });
+
+    const updateTodo$ = actions.updateTodoEvent$.map(serializeForm);
+    const update_todo_action$ = updateTodo$.compose(sampleCombine(
+      getAuthUserInfo(props.tokens$).map(x => x ? x.sub: null))).
+      map(function(model) {
+        let todo = model[0];
+        todo.user_id = model[1];
+        return {
+          category: 'update',
+          method: 'PUT',
+          url: 'http://127.0.0.1:3000/todos/' + String(props$.id) + '.json',
+          send: {
+            type: 'application/json',
+            todo: todo
+          },
+          headers: {redirect: true, redirectUrl: '/todos/' + props$.id}
+        };
+      });
+
+    return {
+      state: xs.combine(todo$, family_todos$),
+      HTTP: xs.merge(
+        todo_action$,
+        create_sub_todo_action$,
+        family_todos_action$,
+        update_todo_action$
+      ),
+    };
+  }
+
+  const renderSubTodo = todo => {
+    if (!todo) {
+      return;
+    }
+    return tr(todo.id == props$.id ? { props: { style: 'color:red' }} : {}, [
+      td(todo.id),
+      td(todo.due),
+      td(todo.task),
+      td(todo.status),
+      td(todo.parent_id || {}),
+      td(a({ props: { href: '/todos/' + todo.id }}, 'Show')),
     ])
-  );
+  }
+
+  function view(state$) {
+    return state$.map(([todo, todos]) =>
+      h('div.todos', [
+        todo === null ? null : h('form', [
+          h('div.form-group', [
+            h('div', '期限日'),
+            h('input#update-due.form-control',{ props: { value: todo.due, type:"text", name:"due"}})
+          ]),
+          h('div.form-group', [
+            h('div', 'タスク内容'),
+            h('input#update-task.form-control',{ props: { value: todo.task, type:"text", name:"task"}})
+          ]),
+          h('div.form-group', [
+            h('div', '状態'),
+            h('select#post-status.form-control', { props: {name:"status"}}, [
+              h('option', todo.status === '未対応' ? {props: {selected:"selected"}} : {}, '未対応'),
+              h('option', todo.status === '完了' ? {props: {selected:"selected"}} : {}, '完了')
+            ])
+          ]),
+          h('button#update.btn.btn-outline-primary.btn-block', ['POST']),
+        ]),
+        h('div', '親子課題'),
+        h('div', [
+          todo && todo.parent_id != null ? null :
+          h('form', [
+            h('div.form-group', [
+              h('div', '期限日'),
+              h('input#post-due.form-control', { props: {type:"text", name:"due"}})
+            ]),
+            h('div.form-group', [
+              h('div', 'タスク内容'),
+              h('input#post-task.form-control', { props: {type:"text", name:"task"}})
+            ]),
+            h('div.form-group', [
+              h('div', '状態'),
+              h('select#post-status.form-control', { props: {name:"status"}}, [
+                h('option', '未対応'),
+                h('option', '完了')
+              ])
+            ]),
+            h('button#post.btn.btn-outline-primary.btn-block', ['POST']),
+          ])
+        ]),
+        h('table', {}, [
+          h('thead', {}, h('tr', {}, [
+            h('td', "ID"),
+            h('td', "Due"),
+            h('td', "Task"),
+            h('td', "Status"),
+            h('td', "PID")
+          ])),
+          h('tbody',{}, todos.map(renderSubTodo))
+        ]),
+        h('div', [
+          h('a', {attrs: {href: '/'}}, 'Back')
+        ]),
+      ])
+    );
+  };
+
+  const intent$ = intent(DOM);
+  const model$ = model(intent$);
+  const vdom$ = view(model$.state);
 
   return {
     DOM: vdom$,
-    HTTP: request$
+    HTTP: model$.HTTP,
+    preventDefault: intent$.preventDefault
   };
 }
 
@@ -261,6 +416,21 @@ function main(sources) {
 
   const clickHref$ = sources.DOM.select('a').events('click');
   const history$ = clickHref$.map(ev => ev.target.pathname);
+  const postRedirects$ = sources.HTTP
+    .select()
+    .filter(res$ => res$.request.method === 'POST')
+    .flatten() //Needed because HTTP gives an Observable when you map it
+    .debug(resp => {console.log('POST response', resp)})
+    .filter(resp => resp.status === 201 && resp.req.header && resp.req.header.redirectUrl)
+    .map(resp => resp.req.header.redirectUrl)
+  const putRedirects$ = sources.HTTP
+    .select()
+    .filter(res$ => res$.request.method === 'PUT')
+    .flatten() //Needed because HTTP gives an Observable when you map it
+    .debug(resp => {console.log('PUT response', resp)})
+    .filter(resp => resp.status === 200 && resp.req.header && resp.req.header.redirectUrl)
+    .map(resp => resp.req.header.redirectUrl)
+
   const vtree$ = page$.map(c => c.DOM).flatten().map(childVnode => h('div#app', {}, [navbar(), childVnode]));
   const requests$ = page$.map(x => x.HTTP).filter(x => !!x).flatten();
   const logout$ = sources.DOM
@@ -270,8 +440,8 @@ function main(sources) {
 
   const sinks = {
     DOM: vtree$,
-    router: history$,
-    preventDefault: clickHref$,
+    router: xs.merge(history$, postRedirects$, putRedirects$),
+    preventDefault: xs.merge(page$.map(x => x.preventDefault).filter(x => !!x).flatten(), clickHref$),
     HTTP: requests$,
     auth0: xs.merge(page$.map(x => x.auth0).filter(x => !!x).flatten(), logout$)
   };
