@@ -9,6 +9,7 @@ import sampleCombine from 'xstream/extra/sampleCombine'
 import {makeAuth0Driver, protect} from "cyclejs-auth0";
 import jwt from "jwt-decode";
 import serialize from "form-serialize";
+import Calendar from '../src/calendar_widget';
 import ModalComponent from '../src/modal_component';
 
 function Home(sources) {
@@ -397,36 +398,45 @@ function Todo({props$, sources}) {
         };
       });
 
+    const visibility$ = xs.merge(
+        DOM.select('#calendar-open').events('click').mapTo(true),
+        DOM.select('#calendar-close').events('click').mapTo(false)
+      ).startWith(false)
+
+    const create_sub_calendar = Calendar({DOM, visibility$});
+
     const modal = ModalComponent({
       props: {
         // モーダルの前面に表示する DOM 要素
-        content$: xs.of(
-          h('div', [
-            h('header.panel-heading', [
-              h('button#dialog-close.close', [
-                h('span','×')
-              ])
-            ]),
-            h('form', [
-              h('div.form-group', [
-                h('div', '期限日'),
-                h('input#post-due.form-control', { props: {type:"text", name:"due"}})
-              ]),
-              h('div.form-group', [
-                h('div', 'タスク内容'),
-                h('input#post-task.form-control', { props: {type:"text", name:"task"}})
-              ]),
-              h('div.form-group', [
-                h('div', '状態'),
-                h('select#post-status.form-control', { props: {name:"status"}}, [
-                  h('option', '未対応'),
-                  h('option', '完了')
+        content$: xs.combine(create_sub_calendar.DOM, create_sub_calendar.value$)
+          .map(([calendarVTree, calendarValue]) =>
+            h('div', [
+              h('header.panel-heading', [
+                h('button#dialog-close.close', [
+                  h('span','×')
                 ])
               ]),
-              h('button#post.btn.btn-outline-primary.btn-block', ['POST']),
-            ])
-          ]),
-        ),
+              h('form', [
+                h('div.form-group', [
+                  h('div', '期限日'),
+                  h('input#post-due.form-control', { props: {type:"text", name:"due", value: calendarValue}}),
+                  calendarVTree,
+                ]),
+                h('div.form-group', [
+                  h('div', 'タスク内容'),
+                  h('input#post-task.form-control', { props: {type:"text", name:"task"}})
+                ]),
+                h('div.form-group', [
+                  h('div', '状態'),
+                  h('select#post-status.form-control', { props: {name:"status"}}, [
+                    h('option', '未対応'),
+                    h('option', '完了')
+                  ])
+                ]),
+                h('button#post.btn.btn-outline-primary.btn-block', ['POST']),
+              ])
+            ]),
+          ),
         // モーダルを表示するかどうか
         visibility$: xs.merge(
           sources.DOM.select('#dialog-open').events('click').mapTo(true),
@@ -440,8 +450,18 @@ function Todo({props$, sources}) {
       .map(res => JSON.parse(res.text))
       .startWith({})
 
+    const update_calendar = Calendar({DOM, visibility$});
+
     return {
-      state: xs.combine(todo$, family_todos$, update_response$, modal.DOM),
+      state: xs.combine(
+        todo$,
+        family_todos$,
+        update_response$,
+        modal.DOM,
+        update_calendar.DOM,
+        update_calendar.value$
+      ),
+
       HTTP: xs.merge(
         todo_action$,
         create_sub_todo_action$,
@@ -466,12 +486,20 @@ function Todo({props$, sources}) {
   }
 
   function view(state$) {
-    return state$.map(([todo, todos, update_response, modal]) =>
+    return state$.map(([todo, todos, update_response, modal, calendarVTree, calendarValue]) =>
       h('div.todos', [
         todo === null ? null : h('form', [
           h('div.form-group', [
             h('div', '期限日'),
-            h('input#update-due.form-control',{ props: { value: todo.due, type:"text", name:"due"}}),
+            h('input#update-due.form-control',
+              { props: {
+                  value: calendarValue != null ? calendarValue : todo.due,
+                  type:"text",
+                  name:"due"
+                }
+              }
+            ),
+            calendarVTree,
             h('div', { props: { style: 'color:red' }} ,['errors' in update_response ? update_response.errors.due[0] : null]),
           ]),
           h('div.form-group', [

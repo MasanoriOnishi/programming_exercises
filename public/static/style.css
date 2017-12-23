@@ -28,3 +28,8 @@ td {
   visibility: visible;
   opacity: 1;
 }
+
+.cal-wg {
+  position: absolute;
+  display: inline-block;
+}
