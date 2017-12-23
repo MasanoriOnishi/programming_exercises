@@ -1,7 +1,7 @@
 import xs from 'xstream'
 import {run} from '@cycle/run';
 import {makeHTTPDriver} from '@cycle/http';
-import {div, h1, makeDOMDriver, button, h4, a, tr, table, tbody, thead, td, li, ul, span, th, h} from '@cycle/dom';
+import {div, h1, makeDOMDriver, button, h4, a, tr, table, tbody, thead, td, li, ul, span, th, h, header, p, h2} from '@cycle/dom';
 import { makeHistoryDriver } from '@cycle/history';
 import switchPath from 'switch-path';
 import {routerify} from 'cyclic-router';
@@ -10,6 +10,7 @@ import {makeAuth0Driver, protect} from "cyclejs-auth0";
 import jwt from "jwt-decode";
 import serialize from "form-serialize";
 import Calendar from '../src/calendar_widget';
+import ModalComponent from '../src/modal_component';
 
 function Home(sources) {
   const vtree$ = xs.of(h('h1', {}, 'Hello I am Home'));
@@ -85,6 +86,9 @@ let getAuthUserInfo = function(tokens) {
 const TODO_LIST_URL = "http://127.0.0.1:3000/todos";
 
 function TodoList({DOM, HTTP, props}) {
+  let sort_status = "desc"
+  let filter_status = "all";
+
   let deleteTodo$ = DOM.select("button.deleteTodo").events("click")
     .map(getTodoId);
 
@@ -115,9 +119,13 @@ function TodoList({DOM, HTTP, props}) {
       }
     ))
 
-  // TODO 後でuser毎にstatusを保持できるようにする
-  let sort_status = "desc"
-  let filter_status = "all";
+  let user_setting_action$ = getAuthUserInfo(props.tokens$)
+    .map(x => ({
+      url: 'http://127.0.0.1:3000/user_settings/' + String(x.sub) + '.json', // GET method by default
+      category: 'user_setting',
+      method: 'GET',
+      }
+    ))
 
   function model(actions) {
     const todos$ = HTTP
@@ -125,18 +133,34 @@ function TodoList({DOM, HTTP, props}) {
       .flatten()
       .map(res => res.body)
 
+    const user_setting$ = HTTP
+      .select('user_setting')
+      .flatten()
+      .map(res => res.body)
+
+    const sortTodos = todosData => {
+      if (sort_status === "desc") {
+        todosData.sort((a, b) => a.due > b.due ? 1 : -1)
+        sort_status = "asc"
+      } else {
+        todosData.sort((a, b) => a.due < b.due ? 1 : -1)
+        sort_status = "desc"
+      }
+      return todosData;
+    }
+
+    const initializeTodos = ([todosData, user_setting]) => {
+      filter_status = user_setting.filter
+      sort_status = user_setting.sort
+      return sortTodos(todosData)
+    }
+
+    const init_todos$ = xs
+      .combine(todos$, user_setting$)
+      .map(initializeTodos)
+
     const sortedList$ = actions.sort_due_action$
-      .mapTo(
-        function changeRouteReducer(todosData) {
-          if (sort_status === "desc") {
-            todosData.sort((a, b) => a.due > b.due ? 1 : -1)
-            sort_status = "asc"
-          } else {
-            todosData.sort((a, b) => a.due < b.due ? 1 : -1)
-            sort_status = "desc"
-          }
-          return todosData;
-      });
+      .mapTo(sortTodos);
 
     const filterdComletedList$ = actions.filter_complete_action$
       .mapTo((todosData) => {
@@ -156,16 +180,83 @@ function TodoList({DOM, HTTP, props}) {
         return todosData}
       );
 
-    return todos$.map(
-      todos => xs.merge(
-        sortedList$,
-        filterdComletedList$,
-        filterdAllList$,
-        filterdUncompletedList$
+    let sort_action$ = actions.sort_due_action$
+      .compose(sampleCombine(
+        getAuthUserInfo(props.tokens$).map(x => x ? x.sub: null),
+        user_setting$
+      ))
+      .map(x => ({
+          method: 'PUT',
+          url: 'http://127.0.0.1:3000/user_settings/' + String(x[1]) + '.json',
+          send: {
+            type: 'application/json',
+            user_setting: {
+              sort: sort_status
+            }
+          },
+          category: 'sort_todos',
+        }
+      ))
+
+    let filterRequest = ([x, status]) => {
+      filter_status = status
+      return ({
+        method: 'PUT',
+        url: 'http://127.0.0.1:3000/user_settings/' + String(x[1]) + '.json',
+        send: {
+          type: 'application/json',
+          user_setting: {
+            filter: status
+          }
+        },
+        category: 'filter_todos',
+      }
+    )}
+
+    let filter_all_resuest$ = actions.filter_all_action$
+      .compose(sampleCombine(
+        getAuthUserInfo(props.tokens$).map(x => x ? x.sub: null),
+        user_setting$
+      ))
+      .map(x => filterRequest([x, "all"]))
+
+    let filter_complete_resuest$ = actions.filter_complete_action$
+      .compose(sampleCombine(
+        getAuthUserInfo(props.tokens$).map(x => x ? x.sub: null),
+        user_setting$
+      ))
+      .map(x => filterRequest([x, "complete"]))
+
+    let filter_uncomplete_resuest$ = actions.filter_uncomplete_action$
+      .compose(sampleCombine(
+        getAuthUserInfo(props.tokens$).map(x => x ? x.sub: null),
+        user_setting$
+      ))
+      .map(x => filterRequest([x, "uncomplete"]))
+
+    return {
+      state: init_todos$
+        .map(
+          x => xs.merge(
+            sortedList$,
+            filterdComletedList$,
+            filterdAllList$,
+            filterdUncompletedList$
+        )
+        .fold((data, reducer) => reducer(data), x))
+        .flatten(),
+      HTTP: xs.merge(
+        todos_action$,
+        delete_action$,
+        user_setting_action$,
+        sort_action$,
+        filter_all_resuest$,
+        filter_complete_resuest$,
+        filter_uncomplete_resuest$,
       )
-      .fold((data, reducer) => reducer(data), todos))
-      .flatten()
+    }
   }
+
 
   let renderTodo = todo => {
     if (!todo) {
@@ -192,7 +283,8 @@ function TodoList({DOM, HTTP, props}) {
         return todo
       }
     }
-    return state$.map(todos =>
+    return state$
+    .map(todos =>
       h('div', [
         h('div', [
           h('span', '状態: '),
@@ -215,11 +307,13 @@ function TodoList({DOM, HTTP, props}) {
     );
   }
 
-  const vdom$ = view(model(intent(DOM)));
+  const intent$ = intent(DOM);
+  const model$ = model(intent$);
+  const vdom$ = view(model$.state);
 
   return {
     DOM: vdom$,
-    HTTP: xs.merge(todos_action$, delete_action$)
+    HTTP: model$.HTTP,
   };
 }
 
@@ -303,6 +397,48 @@ function Todo({props$, sources}) {
           headers: {redirect: true, redirectUrl: '/todos/' + props$.id}
         };
       });
+    const modal = ModalComponent({
+      props: {
+        // モーダルの前面に表示する DOM 要素
+        content$: xs.of(
+          h('div', [
+            h('header.panel-heading', [
+              h('button#dialog-close.close', [
+                h('span','×')
+              ])
+            ]),
+            h('form', [
+              h('div.form-group', [
+                h('div', '期限日'),
+                h('input#post-due.form-control', { props: {type:"text", name:"due"}})
+              ]),
+              h('div.form-group', [
+                h('div', 'タスク内容'),
+                h('input#post-task.form-control', { props: {type:"text", name:"task"}})
+              ]),
+              h('div.form-group', [
+                h('div', '状態'),
+                h('select#post-status.form-control', { props: {name:"status"}}, [
+                  h('option', '未対応'),
+                  h('option', '完了')
+                ])
+              ]),
+              h('button#post.btn.btn-outline-primary.btn-block', ['POST']),
+            ])
+          ]),
+        ),
+        // モーダルを表示するかどうか
+        visibility$: xs.merge(
+          sources.DOM.select('#dialog-open').events('click').mapTo(true),
+          sources.DOM.select('#dialog-close').events('click').mapTo(false)
+        ).startWith(false)
+      }
+    });
+
+    const update_response$ = HTTP.select('update')
+      .flatten()
+      .map(res => JSON.parse(res.text))
+      .startWith({})
 
     const visibility$ = xs.merge(
         DOM.select('#calendar-open').events('click').mapTo(true),
@@ -311,7 +447,15 @@ function Todo({props$, sources}) {
     const calendar = Calendar({DOM, visibility$});
 
     return {
-      state: xs.combine(todo$, family_todos$, calendar.DOM, calendar.value$),
+      state: xs.combine(
+        todo$,
+        family_todos$,
+        update_response$,
+        modal.DOM,
+        calendar.DOM,
+        calendar.value$
+      ),
+
       HTTP: xs.merge(
         todo_action$,
         create_sub_todo_action$,
@@ -336,7 +480,7 @@ function Todo({props$, sources}) {
   }
 
   function view(state$) {
-    return state$.map(([todo, todos, calendarVTree, calendarValue]) =>
+    return state$.map(([todo, todos, update_response, modal, calendarVTree, calendarValue]) =>
       h('div.todos', [
         todo === null ? null : h('form', [
           h('div.form-group', [
@@ -349,6 +493,7 @@ function Todo({props$, sources}) {
                 }
               }
             ),
+            h('div', { props: { style: 'color:red' }} ,['errors' in update_response ? update_response.errors.due[0] : null]),
             calendarVTree,
           ]),
           h('div.form-group', [
@@ -364,27 +509,11 @@ function Todo({props$, sources}) {
           ]),
           h('button#update.btn.btn-outline-primary.btn-block', ['POST']),
         ]),
-        h('div', '親子課題'),
-        h('div', [
+        h('div',[
+          '親子課題',
           todo && todo.parent_id != null ? null :
-          h('form', [
-            h('div.form-group', [
-              h('div', '期限日'),
-              h('input#post-due.form-control', { props: {type:"text", name:"due"}})
-            ]),
-            h('div.form-group', [
-              h('div', 'タスク内容'),
-              h('input#post-task.form-control', { props: {type:"text", name:"task"}})
-            ]),
-            h('div.form-group', [
-              h('div', '状態'),
-              h('select#post-status.form-control', { props: {name:"status"}}, [
-                h('option', '未対応'),
-                h('option', '完了')
-              ])
-            ]),
-            h('button#post.btn.btn-outline-primary.btn-block', ['POST']),
-          ])
+          h('button#dialog-open.btn.btn-default', '子課題を追加する'),
+          modal,
         ]),
         h('table', {}, [
           h('thead', {}, h('tr', {}, [

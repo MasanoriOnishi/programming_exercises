@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20171205141945) do
+ActiveRecord::Schema.define(version: 20171217022511) do
 
   create_table "todos", force: :cascade, options: "ENGINE=InnoDB DEFAULT CHARSET=utf8" do |t|
     t.date "due"
@@ -20,6 +20,15 @@ ActiveRecord::Schema.define(version: 20171205141945) do
     t.datetime "updated_at", null: false
     t.string "user_id"
     t.string "parent_id"
+    t.index ["parent_id"], name: "index_todos_on_parent_id"
+    t.index ["user_id"], name: "index_todos_on_user_id"
+  end
+
+  create_table "user_settings", primary_key: "user_id", id: :string, force: :cascade, options: "ENGINE=InnoDB DEFAULT CHARSET=utf8" do |t|
+    t.string "sort"
+    t.string "filter"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
   end
 
 end
