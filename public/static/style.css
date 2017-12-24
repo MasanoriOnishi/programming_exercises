@@ -2,7 +2,7 @@ td {
   font-size: "30px";
 }
 
-.modal {
+.modalWin {
   position: fixed;
   top: 0;
   left: 0;
@@ -17,19 +17,41 @@ td {
   transition: .3s ease-in-out;
 }
 
-.modal__content {
-  padding: 40px 0;
+.modalWin__content {
+  background-color: white;
+  width: 300px;
+  padding: 25px 12px;
   margin: auto;
   transform: translate3D(0, -30px, 0);
   transition: transform .3s ease-in-out;
 }
 
-.modal--visible {
+.modalWin--visible {
   visibility: visible;
   opacity: 1;
 }
 
-.cal-wg {
+.calendar-table {
   position: absolute;
-  display: inline-block;
+  top: 34px;
+  bottom: auto;
+  left: 0px;
+  right: auto;
+  background-color: lightblue;
+  table-layout:fixed;
+  width: 300px;
+}
+
+.center {
+  text-align: center;
+}
+
+.minor {
+  opacity: 0.45;
+}
+
+.panel-heading {
+  position: absolute;
+  top: -5px;
+  right: 5px;
 }

@@ -56,12 +56,12 @@ function view(model$, visibility$) {
   .debug(([props, visible]) => console.log(visible))
   .map(([props, visible]) => div('.cal-wg',
       [
-        input('#cal-open', {props: {type: 'button', value: '□'}}),
-        visible ? table([
+        input('#cal-open.input-group-addon', {props: {type: 'button', value: '□'}}),
+        visible ? table('.calendar-table', [
           tr([
-            th(input('.prev', {props: {type: 'button', value: '<'}})),
-            th({colSpan:5}, props.i18n.months[props.month].substring(0, 3)+' '+props.year),
-            th(input('.next', {props: {type: 'button', value: '>'}}))
+            th(input('.prev', {props: {type: 'button', value: '<', colSpan:1}})),
+            th('.center', {props: {colSpan:5}}, props.i18n.months[props.month].substring(0, 3)+' '+props.year),
+            th(input('.next', {props: {type: 'button', value: '>', colSpan:1}}))
           ]),
           tr(props.i18n.days.map(x => th(x.substring(0, 2))))
         ]

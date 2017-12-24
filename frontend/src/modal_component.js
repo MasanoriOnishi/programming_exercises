@@ -3,12 +3,12 @@ import {div} from '@cycle/dom';
 import isolate from '@cycle/isolate';
 
 function render([visible, content]) {
-  return div('.modal', {
+  return div('.modalWin', {
     class: {
-      'modal--visible': visible
+      'modalWin--visible': visible
     }
   }, [
-    div('.modal__content', [visible ? content : null])
+    div('.modalWin__content', [visible ? content : null])
   ]);
 }
 
