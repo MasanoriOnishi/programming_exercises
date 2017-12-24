@@ -78,10 +78,11 @@ function TodoForm({DOM, HTTP, props}) {
     h('form', [
       h('div.form-group', [
         h('div', '期限日'),
-        h('input#post-due.form-control', { props: {type:"text", name:"due", value: calendarValue}}),
-        calendarVTree,
-        h('div', { props: { style: 'color:red' }} ,[error_message_todo(create_response, 'due')]),
-      ]),
+        h('div.input-group', [
+          h('input#post-due.form-control', { props: {type:"text", name:"due", value: calendarValue}}),
+          calendarVTree,
+      ])]),
+      h('div', { props: { style: 'color:red' }} ,[error_message_todo(create_response, 'due')]),
       h('div.form-group', [
         h('div', 'タスク内容'),
         h('input#post-task.form-control', { props: {type:"text", name:"task"}}),
@@ -94,7 +95,7 @@ function TodoForm({DOM, HTTP, props}) {
           h('option', '完了')
         ])
       ]),
-      h('button#post.btn.btn-outline-primary.btn-block', ['POST']),
+      h('button#post.btn.btn-success', ['SAVE']),
     ])
   ]))};
 
@@ -311,8 +312,8 @@ function TodoList({DOM, HTTP, props}) {
       td(todo.task),
       td(todo.status),
       td(todo.parent_id || {}),
-      td(a({ props: { href: '/todos/' + todo.id }}, 'Show')),
-      td(button(".deleteTodo", { attrs: { "data-todo-id": todo.id }}, 'Delete'))
+      td(a(".btn.btn-primary", { props: { href: '/todos/' + todo.id}}, 'Show')),
+      td(button(".deleteTodo.btn.btn-danger", { attrs: { "data-todo-id": todo.id }}, 'Delete'))
     ])
   }
 
@@ -331,17 +332,19 @@ function TodoList({DOM, HTTP, props}) {
       h('div', [
         h('div', [
           h('span', '状態: '),
-          h('button.filter_all', 'すべて'),
-          h('button.filter_complete', '完了'),
-          h('button.filter_uncomplete', '未対応')
+          h('button.filter_all.btn.btn-secondary', 'すべて'),
+          h('button.filter_complete.btn.btn-secondary', '完了'),
+          h('button.filter_uncomplete.btn.btn-secondary', '未対応')
         ]),
-        h('table', {}, [
-          h('thead', {}, h('tr', {}, [
+        h('table.table.table-sm', {}, [
+          h('thead.thead-inverse', {}, h('tr', {}, [
             h('td', "ID"),
-            h('td', ["Due", h('button.sort_due', 'sort')]),
+            h('td', ["Due", h('button.sort_due.btn.btn-secondary', 'sort')]),
             h('td', "Task"),
             h('td', "Status"),
-            h('td', "PID")
+            h('td', "PID"),
+            h('td'),
+            h('td'),
           ])),
           h('tbody',{}, todos.map(filterStatusView).map(renderTodo))
           ])
@@ -467,10 +470,11 @@ function Todo({props$, sources}) {
               h('form', [
                 h('div.form-group', [
                   h('div', '期限日'),
-                  h('input#post-due.form-control', { props: {type:"text", name:"due", value: calendarValue}}),
-                  calendarVTree,
-                  h('div', { props: { style: 'color:red' }} ,[error_message_todo(create_sub_response, 'due')]),
-                ]),
+                  h('div.input-group', [
+                    h('input#post-due.form-control', { props: {type:"text", name:"due", value: calendarValue}}),
+                    calendarVTree,
+                ])]),
+                h('div', { props: { style: 'color:red' }} ,[error_message_todo(create_sub_response, 'due')]),
                 h('div.form-group', [
                   h('div', 'タスク内容'),
                   h('input#post-task.form-control', { props: {type:"text", name:"task"}}),
@@ -483,7 +487,7 @@ function Todo({props$, sources}) {
                     h('option', '完了')
                   ])
                 ]),
-                h('button#post.btn.btn-outline-primary.btn-block', ['POST']),
+                h('button#post.btn.btn-success', ['SAVE']),
               ])
             ]),
           ),
@@ -526,12 +530,13 @@ function Todo({props$, sources}) {
       return;
     }
     return tr(todo.id == props$.id ? { props: { style: 'color:red' }} : {}, [
+      td(!(todo.parent_id) ? span('.fa.fa-home') : span('.fa.fa-level-up.fa-rotate-90')),
       td(todo.id),
       td(todo.due),
       td(todo.task),
       td(todo.status),
       td(todo.parent_id || {}),
-      td(a({ props: { href: '/todos/' + todo.id }}, 'Show')),
+      td(a('.btn.btn-primary', { props: { href: '/todos/' + todo.id }}, 'Show')),
     ])
   }
 
@@ -539,22 +544,24 @@ function Todo({props$, sources}) {
     return state$.map(([todo, todos, update_response, modal, calendarVTree, calendarValue]) =>
       h('div.todos', [
         todo === null ? null : h('form', [
-          h('div.form-group', [
+          h('div.form-group',{},[
             h('div', '期限日'),
-            h('input#update-due.form-control',
-              { props: {
-                  value: calendarValue != null ? calendarValue : todo.due,
-                  type:"text",
-                  name:"due"
+            h('div.input-group', [
+              h('input#update-due.form-control',
+                { props: {
+                    value: calendarValue != null ? calendarValue : todo.due,
+                    type:"text",
+                    name:"due"
+                  }
                 }
-              }
-            ),
-            calendarVTree,
-            h('div', { props: { style: 'color:red' }} ,[error_message_todo(update_response, 'due')]),
-          ]),
+              ),
+              calendarVTree
+            ])]),
+          h('div', { props: { style: 'color:red' }} ,[error_message_todo(update_response, 'due')]),
           h('div.form-group', [
             h('div', 'タスク内容'),
-            h('input#update-task.form-control',{ props: { value: todo.task, type:"text", name:"task"}})
+            h('input#update-task.form-control',{ props: { value: todo.task, type:"text", name:"task"}}),
+            h('div', { props: { style: 'color:red' }} ,[error_message_todo(update_response, 'task')]),
           ]),
           h('div.form-group', [
             h('div', '状態'),
@@ -563,21 +570,23 @@ function Todo({props$, sources}) {
               h('option', todo.status === '完了' ? {props: {selected:"selected"}} : {}, '完了')
             ])
           ]),
-          h('button#update.btn.btn-outline-primary.btn-block', ['POST']),
+          h('button#update.btn.btn-success', ['SAVE']),
         ]),
         h('div',[
           '親子課題',
           todo && todo.parent_id != null ? null :
-          h('button#dialog-open.btn.btn-default', '子課題を追加する'),
+          h('button#dialog-open.btn.btn-secondary', '子課題を追加する'),
           modal,
         ]),
-        h('table', {}, [
+        h('table.table', {}, [
           h('thead', {}, h('tr', {}, [
+            h('td'),
             h('td', "ID"),
             h('td', "Due"),
             h('td', "Task"),
             h('td', "Status"),
-            h('td', "PID")
+            h('td', "PID"),
+            h('td')
           ])),
           h('tbody',{}, todos.map(renderSubTodo))
         ]),
@@ -649,16 +658,16 @@ function main(sources) {
 }
 
 function navbar() {
-  return h('div.pure-menu.pure-menu-horizontal', {}, [
-    h('ul.pure-menu-list', {}, [
-      h('li.pure-menu-item', {}, [
-        h('a.pure-menu-link', { props: { href: '/new' } }, 'New')
+  return h('nav.navbar.navbar-toggleable-md.navbar-inverse.bg-inverse', {}, [
+    h('ul.navbar-nav.mr-auto', {}, [
+      h('li.nav-item', {}, [
+        h('a.nav-link', { props: { href: '/' } }, 'TOP')
       ]),
-      h('li.pure-menu-item', {}, [
-        h('a.pure-menu-link', { props: { href: '/' } }, 'TodoList')
+      h('li.nav-item', {}, [
+        h('a.nav-link', { props: { href: '/new' } }, 'New')
       ]),
-      h("button.logout", "logout")
-    ])
+    ]),
+    h("button.logout.btn.btn-warning", "logout")
   ]);
 }
 
