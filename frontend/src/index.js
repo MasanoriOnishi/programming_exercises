@@ -19,6 +19,10 @@ function Home(sources) {
   };
 }
 
+const error_message_todo = function(response, type) {
+  return 'errors' in response && type in response.errors ? response.errors[type][0] : null
+}
+
 const serializeForm = function(evt) {
   return serialize(evt.target.form, {hash: true});
 };
@@ -41,7 +45,7 @@ function TodoForm({DOM, HTTP, props}) {
         let todo = model[0];
         todo.user_id = model[1];
         return {
-          category: 'api',
+          category: 'create',
           method: 'POST',
           url: 'http://127.0.0.1:3000/todos.json',
           send: {
@@ -52,10 +56,16 @@ function TodoForm({DOM, HTTP, props}) {
         };
       });
 
+    const create_response$ = HTTP.select('create')
+      .flatten()
+      .map(res => JSON.parse(res.text))
+      .startWith({})
+
     const create_calendar = Calendar({DOM});
 
     return {
       state: xs.combine(
+        create_response$,
         create_calendar.DOM,
         create_calendar.value$
       ),
@@ -63,17 +73,19 @@ function TodoForm({DOM, HTTP, props}) {
     }
   }
   function view(state$) {
-    return state$.map(([calendarVTree, calendarValue]) =>
+    return state$.map(([create_response, calendarVTree, calendarValue]) =>
     h('div', [
     h('form', [
       h('div.form-group', [
         h('div', '期限日'),
         h('input#post-due.form-control', { props: {type:"text", name:"due", value: calendarValue}}),
         calendarVTree,
+        h('div', { props: { style: 'color:red' }} ,[error_message_todo(create_response, 'due')]),
       ]),
       h('div.form-group', [
         h('div', 'タスク内容'),
-        h('input#post-task.form-control', { props: {type:"text", name:"task"}})
+        h('input#post-task.form-control', { props: {type:"text", name:"task"}}),
+        h('div', { props: { style: 'color:red' }} ,[error_message_todo(create_response, 'task')]),
       ]),
       h('div.form-group', [
         h('div', '状態'),
@@ -397,7 +409,7 @@ function Todo({props$, sources}) {
         todo.user_id = model[1];
         todo.parent_id = props$.id;
         return {
-          category: 'api',
+          category: 'create_sub',
           method: 'POST',
           url: 'http://127.0.0.1:3000/todos.json',
           send: {
@@ -433,11 +445,19 @@ function Todo({props$, sources}) {
 
     const create_sub_calendar = Calendar({DOM, visibility$});
 
+    const create_sub_response$ = HTTP.select('create_sub')
+      .flatten()
+      .map(res => JSON.parse(res.text))
+      .startWith({})
+
     const modal = ModalComponent({
       props: {
         // モーダルの前面に表示する DOM 要素
-        content$: xs.combine(create_sub_calendar.DOM, create_sub_calendar.value$)
-          .map(([calendarVTree, calendarValue]) =>
+        content$: xs.combine(
+          create_sub_response$,
+          create_sub_calendar.DOM,
+          create_sub_calendar.value$)
+          .map(([create_sub_response, calendarVTree, calendarValue]) =>
             h('div', [
               h('header.panel-heading', [
                 h('button#dialog-close.close', [
@@ -449,10 +469,12 @@ function Todo({props$, sources}) {
                   h('div', '期限日'),
                   h('input#post-due.form-control', { props: {type:"text", name:"due", value: calendarValue}}),
                   calendarVTree,
+                  h('div', { props: { style: 'color:red' }} ,[error_message_todo(create_sub_response, 'due')]),
                 ]),
                 h('div.form-group', [
                   h('div', 'タスク内容'),
-                  h('input#post-task.form-control', { props: {type:"text", name:"task"}})
+                  h('input#post-task.form-control', { props: {type:"text", name:"task"}}),
+                  h('div', { props: { style: 'color:red' }} ,[error_message_todo(create_sub_response, 'task')]),
                 ]),
                 h('div.form-group', [
                   h('div', '状態'),
@@ -528,7 +550,7 @@ function Todo({props$, sources}) {
               }
             ),
             calendarVTree,
-            h('div', { props: { style: 'color:red' }} ,['errors' in update_response ? update_response.errors.due[0] : null]),
+            h('div', { props: { style: 'color:red' }} ,[error_message_todo(update_response, 'due')]),
           ]),
           h('div.form-group', [
             h('div', 'タスク内容'),
