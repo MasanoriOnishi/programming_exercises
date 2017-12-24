@@ -19,50 +19,81 @@ function Home(sources) {
   };
 }
 
+const serializeForm = function(evt) {
+  return serialize(evt.target.form, {hash: true});
+};
+
 function TodoForm({DOM, HTTP, props}) {
-  const defaultPageState = {
-    response: {}
-  };
-  // DOM からの入力イベントを取得する
-  const eventClickPost$ = DOM.select('#post').events('click');
-  const eventInputPostDue$ = DOM.select('#post-due').events('input');
-  const eventInputPostTask$ = DOM.select('#post-task').events('input');
-  const eventInputPostStatus$ = DOM.select('#post-status').events('input');
+  function intent(domSource) {
+    const createTodoEvent$ = domSource.select("#post").events("click");
+    const preventDefault$ = xs.merge(createTodoEvent$);
+    return {
+      createTodoEvent$: createTodoEvent$,
+      preventDefault: preventDefault$
+    };
+  }
 
-  const request$ = xs.from(eventClickPost$).compose(sampleCombine(
-    eventInputPostDue$.map((e) => (e.ownerTarget).value),
-    eventInputPostTask$.map((e) => (e.ownerTarget).value),
-    eventInputPostStatus$.map((e) => (e.ownerTarget).value),
-    getAuthUserInfo(props.tokens$))).
-    map(x => ({
-      url: 'http://127.0.0.1:3000/todos.json',
-      category: 'api',
-      method: 'POST',
-      send: {
-        type: 'application/json',
-        todo: {
-          due: x[1],
-          task: x[2],
-          status: x[3],
-          user_id: x[4].sub,
-        }
-      },
-      headers: {redirect: true, redirectUrl: '/'}
-    })
-  );
+  function model(actions) {
+    const createTodo$ = actions.createTodoEvent$.map(serializeForm);
+    const create_todo_action$ = createTodo$.compose(sampleCombine(
+      getAuthUserInfo(props.tokens$).map(x => x ? x.sub: null))).
+      map(function(model) {
+        let todo = model[0];
+        todo.user_id = model[1];
+        return {
+          category: 'api',
+          method: 'POST',
+          url: 'http://127.0.0.1:3000/todos.json',
+          send: {
+            type: 'application/json',
+            todo: todo
+          },
+          headers: {redirect: true, redirectUrl: '/'}
+        };
+      });
 
-  // レスポンス Observable を取得する
-  const response$ = HTTP.select('api').flatten().startWith({response: {}});
-  const vtree$ = xs.of(h('div', [
-    h('div.form-group', [h('div', '期限日'), h('input#post-due.form-control')]),
-    h('div.form-group', [h('div', 'タスク内容'),h('input#post-task.form-control')]),
-    h('div.form-group', [h('div', '状態'),h('input#post-status.form-control')]),
-    h('button#post.btn.btn-outline-primary.btn-block', ['POST'])
-  ]));
+    const create_calendar = Calendar({DOM});
+
+    return {
+      state: xs.combine(
+        create_calendar.DOM,
+        create_calendar.value$
+      ),
+      HTTP: create_todo_action$
+    }
+  }
+  function view(state$) {
+    return state$.map(([calendarVTree, calendarValue]) =>
+    h('div', [
+    h('form', [
+      h('div.form-group', [
+        h('div', '期限日'),
+        h('input#post-due.form-control', { props: {type:"text", name:"due", value: calendarValue}}),
+        calendarVTree,
+      ]),
+      h('div.form-group', [
+        h('div', 'タスク内容'),
+        h('input#post-task.form-control', { props: {type:"text", name:"task"}})
+      ]),
+      h('div.form-group', [
+        h('div', '状態'),
+        h('select#post-status.form-control', { props: {name:"status"}}, [
+          h('option', '未対応'),
+          h('option', '完了')
+        ])
+      ]),
+      h('button#post.btn.btn-outline-primary.btn-block', ['POST']),
+    ])
+  ]))};
+
+  const intent$ = intent(DOM);
+  const model$ = model(intent$);
+  const vdom$ = view(model$.state);
 
   return {
-    DOM: vtree$,
-    HTTP: request$,
+    DOM: vdom$,
+    HTTP: model$.HTTP,
+    preventDefault: intent$.preventDefault
   };
 }
 
@@ -319,9 +350,6 @@ function TodoList({DOM, HTTP, props}) {
 
 function Todo({props$, sources}) {
   const {HTTP, DOM, props} = sources
-  const serializeForm = function(evt) {
-    return serialize(evt.target.form, {hash: true});
-  };
 
   function intent(domSource) {
     const createSubTodoEvent$ = domSource.select("#post").events("click");
