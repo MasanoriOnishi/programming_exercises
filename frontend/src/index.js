@@ -530,6 +530,7 @@ function Todo({props$, sources}) {
       return;
     }
     return tr(todo.id == props$.id ? { props: { style: 'color:red' }} : {}, [
+      td(!(todo.parent_id) ? span('.fa.fa-home') : span('.fa.fa-level-up.fa-rotate-90')),
       td(todo.id),
       td(todo.due),
       td(todo.task),
@@ -579,6 +580,7 @@ function Todo({props$, sources}) {
         ]),
         h('table.table', {}, [
           h('thead', {}, h('tr', {}, [
+            h('td'),
             h('td', "ID"),
             h('td', "Due"),
             h('td', "Task"),
